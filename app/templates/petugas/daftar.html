@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+{% block title %}Data Petugas{% endblock %}
+{% block page_title %}Data Petugas / Mitra{% endblock %}
+
+{% block content %}
+<div class="d-flex gap-2 mb-3">
+  <a href="{{ url_for('main.tambah_petugas') }}" class="btn btn-bps btn-sm">
+    <i class="bi bi-plus-lg me-1"></i>Tambah Manual
+  </a>
+  <button class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalImport">
+    <i class="bi bi-file-earmark-excel me-1"></i>Import dari Excel
+  </button>
+  <span class="ms-auto align-self-center text-muted" style="font-size:13px;">
+    Total: <strong>{{ petugas_list|length }}</strong> petugas
+  </span>
+</div>
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+    <table class="table table-hover mb-0" style="font-size:13px;">
+      <thead style="background:#f8f9fb;">
+        <tr>
+          <th class="px-3" style="width:40px;">No.</th>
+          <th>Nama</th>
+          <th>Jabatan / Posisi</th>
+          <th>Kecamatan</th>
+          <th>Desa</th>
+          <th>No. Telp</th>
+          <th>Jenis Kelamin</th>
+          <th>Pendidikan</th>
+          <th>Kontrak</th>
+          <th style="width:90px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in petugas_list %}
+        <tr>
+          <td class="px-3 text-muted">{{ loop.index }}</td>
+          <td class="fw-medium">{{ p.nama }}</td>
+          <td>
+            <span>{{ p.jabatan or '-' }}</span>
+            {% if p.posisi %}<br><small class="text-muted">{{ p.posisi }}</small>{% endif %}
+          </td>
+          <td>{{ p.alamat_kecamatan or '-' }}</td>
+          <td>{{ p.alamat_desa or '-' }}</td>
+          <td>{{ p.no_telp or '-' }}</td>
+          <td class="text-center">
+            {% if p.jenis_kelamin == 'Lk' %}
+              <span class="badge bg-primary bg-opacity-10 text-primary">Laki-laki</span>
+            {% elif p.jenis_kelamin == 'Pr' %}
+              <span class="badge bg-danger bg-opacity-10 text-danger">Perempuan</span>
+            {% else %}
+              <span class="text-muted">-</span>
+            {% endif %}
+          </td>
+          <td>{{ p.pendidikan or '-' }}</td>
+          <td><span class="badge badge-bulan">{{ p.kontrak_list|length }}</span></td>
+          <td>
+            <a href="{{ url_for('main.edit_petugas', id=p.id) }}"
+               class="btn btn-outline-secondary btn-sm me-1">
+              <i class="bi bi-pencil"></i>
+            </a>
+            <form action="{{ url_for('main.hapus_petugas', id=p.id) }}"
+                  method="POST" class="d-inline"
+                  onsubmit="return confirm('Hapus petugas {{ p.nama }}?')">
+              <button type="submit" class="btn btn-outline-danger btn-sm">
+                <i class="bi bi-trash"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="10" class="text-center text-muted py-5">
+            <i class="bi bi-people fs-2 d-block mb-2 opacity-25"></i>
+            Belum ada data. <a href="{{ url_for('main.tambah_petugas') }}">Tambah manual</a> atau import Excel.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Import Excel -->
+<div class="modal fade" id="modalImport" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title fw-semibold">
+          <i class="bi bi-file-earmark-excel me-2 text-success"></i>Import Data Petugas dari Excel
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{{ url_for('main.import_petugas') }}" enctype="multipart/form-data">
+        <div class="modal-body">
+          <div class="alert alert-info" style="font-size:12px;">
+            <i class="bi bi-info-circle me-1"></i>
+            Upload file Excel (.xlsx) dengan sheet <strong>Mitra</strong>. Kolom yang dibaca:
+            Nama Lengkap, Jabatan, Posisi, Alamat Detail, Alamat Prov, Alamat Kab,
+            Alamat Kecamatan, Alamat Desa, Tempat Tanggal Lahir, Jenis Kelamin,
+            Pendidikan, Pekerjaan, Deskripsi Pekerjaan, No Telp, SOBAT ID, Email.
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-medium" style="font-size:13px;">
+              Pilih File Excel <span class="text-danger">*</span>
+            </label>
+            <input type="file" name="file_excel" class="form-control" accept=".xlsx" required>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="skip_duplikat" id="skipDuplikat" checked>
+            <label class="form-check-label" for="skipDuplikat" style="font-size:13px;">
+              Lewati data duplikat (nama sama sudah ada di database)
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-success btn-sm">
+            <i class="bi bi-upload me-1"></i>Import Sekarang
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

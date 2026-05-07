@@ -1,0 +1,198 @@
+{% extends 'base.html' %}
+{% block title %}Detail BAST{% endblock %}
+{% block page_title %}Detail BAST{% endblock %}
+
+{% block content %}
+{% set nm = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] %}
+
+<div class="d-flex gap-2 mb-3">
+  <a href="{{ url_for('main.daftar_bast') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Kembali
+  </a>
+  <a href="{{ url_for('main.generate_bast_doc', id=bast.id) }}" class="btn btn-bps btn-sm">
+    <i class="bi bi-file-earmark-word me-1"></i>Unduh BAST (.docx)
+  </a>
+  <form action="{{ url_for('main.hapus_bast', id=bast.id) }}"
+        method="POST" class="ms-auto"
+        onsubmit="return confirm('Hapus BAST ini secara permanen?')">
+    <button class="btn btn-outline-danger btn-sm">
+      <i class="bi bi-trash me-1"></i>Hapus BAST
+    </button>
+  </form>
+</div>
+
+<div class="row g-3">
+
+  <!-- Info BAST -->
+  <div class="col-md-5">
+    <div class="card mb-3">
+      <div class="card-header">
+        <h6><i class="bi bi-file-earmark-check-fill me-2 text-primary"></i>Informasi BAST</h6>
+      </div>
+      <div class="card-body" style="font-size:13px;">
+        <div class="row g-2">
+          <div class="col-5 text-muted">Nomor BAST</div>
+          <div class="col-7 fw-medium">{{ bast.nomor_bast or '—' }}</div>
+
+          <div class="col-5 text-muted">Bulan Pencairan</div>
+          <div class="col-7">
+            <span class="badge" style="background:#EEF2FF;color:#1341A0;font-size:12px;padding:4px 12px;">
+              {{ nm[bast.bulan_bast] }} {{ bast.tahun_bast }}
+            </span>
+          </div>
+
+          <div class="col-5 text-muted">Tanggal BAST</div>
+          <div class="col-7">
+            {% if bast.tanggal_bast %}
+              {{ bast.tanggal_bast.strftime('%d %B %Y') }}
+              <span class="badge bg-success bg-opacity-10 text-success ms-1" style="font-size:10px;">hari kerja</span>
+            {% else %}—{% endif %}
+          </div>
+
+          <div class="col-5 text-muted">Total Honor</div>
+          <div class="col-7 fw-bold text-primary fs-6">
+            Rp {{ '{:,.0f}'.format(bast.total_honor) }}
+          </div>
+
+          <div class="col-5 text-muted">Kegiatan</div>
+          <div class="col-7">{{ bast.kegiatan_list|length }} kegiatan</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info SPK terkait -->
+    <div class="card">
+      <div class="card-header">
+        <h6><i class="bi bi-file-earmark-text me-2 text-muted"></i>SPK Terkait</h6>
+      </div>
+      <div class="card-body" style="font-size:13px;">
+        <div class="row g-2">
+          <div class="col-5 text-muted">Nomor SPK</div>
+          <div class="col-7 fw-medium">{{ bast.kontrak.nomor_spk }}</div>
+
+          <div class="col-5 text-muted">Bulan SPK</div>
+          <div class="col-7">{{ nama_bulan[bast.kontrak.bulan] }} {{ bast.kontrak.tahun }}</div>
+
+          <div class="col-5 text-muted">Petugas</div>
+          <div class="col-7 fw-medium">{{ bast.kontrak.petugas.nama }}</div>
+
+          <div class="col-5 text-muted">Jabatan</div>
+          <div class="col-7">{{ bast.kontrak.petugas.jabatan or 'Mitra' }}</div>
+
+          <div class="col-5 text-muted">Alamat</div>
+          <div class="col-7">{{ bast.kontrak.petugas.alamat or '—' }}</div>
+        </div>
+        <div class="mt-2">
+          <a href="{{ url_for('main.detail_kontrak', id=bast.kontrak_id) }}"
+             class="btn btn-outline-secondary btn-sm w-100">
+            <i class="bi bi-eye me-1"></i>Lihat Detail SPK
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabel kegiatan dalam BAST ini -->
+  <div class="col-md-7">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0">
+          <i class="bi bi-list-check me-2 text-success"></i>
+          Kegiatan dalam BAST {{ nm[bast.bulan_bast] }} {{ bast.tahun_bast }}
+        </h6>
+        <a href="{{ url_for('main.entri_bast') }}?bulan={{ bast.bulan_bast }}&tahun={{ bast.tahun_bast }}"
+           class="btn btn-outline-warning btn-sm">
+          <i class="bi bi-pencil me-1"></i>Edit
+        </a>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0" style="font-size:12.5px;">
+            <thead>
+              <tr>
+                <th class="px-3">Nama Kegiatan</th>
+                <th>Fungsi</th>
+                <th>Jangka Waktu</th>
+                <th>Vol</th>
+                <th>Sat</th>
+                <th>Honor Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for bk in bast.kegiatan_list %}
+              <tr>
+                <td class="px-3 fw-medium">{{ bk.kegiatan.nama_kegiatan }}</td>
+                <td>
+                  <span class="badge" style="background:#EEF2FF;color:#1341A0;font-size:10px;">
+                    {{ bk.kegiatan.fungsi }}
+                  </span>
+                </td>
+                <td style="white-space:nowrap;" class="text-muted">
+                  {{ bk.kegiatan.tgl_mulai.strftime('%d %b') }} s.d
+                  {{ bk.kegiatan.tgl_selesai.strftime('%d %b %Y') }}
+                </td>
+                <td class="text-center">{{ bk.kegiatan.volume }}</td>
+                <td>{{ bk.kegiatan.satuan }}</td>
+                <td class="fw-medium text-primary">
+                  Rp {{ '{:,.0f}'.format(bk.kegiatan.honor_total) }}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot style="background:#F7F9FD;">
+              <tr>
+                <td colspan="5" class="text-end fw-bold px-3">Total Honor BAST</td>
+                <td class="fw-bold text-primary">
+                  Rp {{ '{:,.0f}'.format(bast.total_honor) }}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info kegiatan NOT dalam BAST ini (masih di bulan lain) -->
+    {% set semua_keg = bast.kontrak.kegiatan_list %}
+    {% set keg_di_bast = bast.kegiatan_list | map(attribute='kegiatan_id') | list %}
+    {% set keg_lain = semua_keg | rejectattr('id', 'in', keg_di_bast) | list %}
+    {% if keg_lain %}
+    <div class="card mt-3">
+      <div class="card-header">
+        <h6 class="mb-0" style="font-size:13px;">
+          <i class="bi bi-clock me-2 text-warning"></i>
+          Kegiatan lain dari SPK ini (belum/akan masuk BAST lain)
+        </h6>
+      </div>
+      <div class="card-body p-0">
+        <table class="table mb-0" style="font-size:12px;">
+          <thead><tr>
+            <th class="px-3">Nama Kegiatan</th>
+            <th>Selesai</th>
+            <th>Rencana BAST</th>
+            <th>Honor</th>
+          </tr></thead>
+          <tbody>
+            {% for k in keg_lain %}
+            <tr>
+              <td class="px-3">{{ k.nama_kegiatan }}</td>
+              <td class="text-muted">{{ k.tgl_selesai.strftime('%d %b %Y') }}</td>
+              <td>
+                {% set b_bast = k.tgl_selesai.month + 1 if k.tgl_selesai.month < 12 else 1 %}
+                {% set t_bast = k.tgl_selesai.year if k.tgl_selesai.month < 12 else k.tgl_selesai.year + 1 %}
+                <span class="badge bg-warning bg-opacity-15 text-warning" style="font-size:10px;">
+                  BAST {{ nama_bulan[b_bast] }} {{ t_bast }}
+                </span>
+              </td>
+              <td>Rp {{ '{:,.0f}'.format(k.honor_total) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,316 @@
+{% extends 'base.html' %}
+{% block title %}Input Kegiatan{% endblock %}
+{% block page_title %}Input Kegiatan Per Fungsi{% endblock %}
+
+{% block content %}
+<form method="POST" id="form-input" onsubmit="hitungSemuaSebelumSubmit()">
+<div class="row g-3">
+
+  <!-- KOLOM KIRI -->
+  <div class="col-md-5">
+
+    <!-- STEP 1: Pilih Fungsi & Periode -->
+    <div class="card mb-3">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold">
+          <span class="badge bg-primary me-2">1</span>Pilih Fungsi & Periode
+        </h6>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label fw-medium" style="font-size:13px;">Fungsi <span class="text-danger">*</span></label>
+          <select name="fungsi" id="sel-fungsi" class="form-select" required>
+            <option value="">— Pilih Fungsi —</option>
+            {% for f, kode in fungsi_kode.items() %}
+            <option value="{{ f }}">{{ f }} ({{ kode }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col">
+            <label class="form-label fw-medium" style="font-size:13px;">Bulan <span class="text-danger">*</span></label>
+            <select name="bulan" id="sel-bulan" class="form-select" required>
+              {% for i in range(1,13) %}
+              <option value="{{ i }}" {{ 'selected' if i == bulan_default }}>{{ nama_bulan[i] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col">
+            <label class="form-label fw-medium" style="font-size:13px;">Tahun <span class="text-danger">*</span></label>
+            <input type="number" name="tahun" id="inp-tahun" class="form-control"
+                   value="{{ tahun_default }}" required>
+          </div>
+        </div>
+        <div class="alert alert-secondary py-2 mb-3" style="font-size:12px;" id="info-tgl-surat">
+          <i class="bi bi-calendar-check me-1"></i>
+          Tanggal surat akan otomatis: <strong id="tgl-surat-preview">—</strong>
+          <span class="text-muted">(hari terakhir bulan sebelumnya)</span>
+        </div>
+        <div class="alert alert-secondary py-2 mt-1" style="font-size:12px;">
+          <i class="bi bi-calendar-range me-1"></i>
+          <strong>Tanggal kontrak otomatis:</strong>
+          Mulai = <strong>1 [bulan dipilih]</strong> &nbsp;|&nbsp;
+          Selesai = <strong>tanggal selesai kegiatan terlama</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 2: Pilih Petugas -->
+    <div class="card mb-3">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold">
+          <span class="badge bg-primary me-2">2</span>Pilih Petugas
+        </h6>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label fw-medium" style="font-size:13px;">Nama Petugas <span class="text-danger">*</span></label>
+          <select name="petugas_id" id="sel-petugas" class="form-select" required>
+            <option value="">— Pilih Petugas —</option>
+            {% for p in petugas_list %}
+            <option value="{{ p.id }}">{{ p.nama }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Info kontrak existing -->
+        <div id="info-kontrak" class="d-none">
+          <div class="alert alert-warning py-2 mb-2" style="font-size:12px;">
+            <i class="bi bi-arrow-repeat me-1"></i>
+            <strong>Kontrak bulan ini sudah ada!</strong> Kegiatan baru akan <strong>ditambahkan</strong> ke kontrak yang ada.
+          </div>
+          <div class="card bg-light border-0 p-2" style="font-size:12px;">
+            <div class="d-flex justify-content-between">
+              <span class="text-muted">Nomor SPK</span>
+              <strong id="info-nomor-spk">—</strong>
+            </div>
+            <div class="d-flex justify-content-between mt-1">
+              <span class="text-muted">Fungsi Dominan Saat Ini</span>
+              <strong id="info-fungsi">—</strong>
+            </div>
+            <div class="d-flex justify-content-between mt-1">
+              <span class="text-muted">Total Honor Saat Ini</span>
+              <strong id="info-honor">—</strong>
+            </div>
+            <div class="d-flex justify-content-between mt-1">
+              <span class="text-muted">Jumlah Kegiatan</span>
+              <strong id="info-jml-kegiatan">—</strong>
+            </div>
+          </div>
+          <!-- Daftar kegiatan yang sudah ada -->
+          <div class="mt-2">
+            <div class="text-muted mb-1" style="font-size:11px;">Kegiatan yang sudah diinput:</div>
+            <div id="info-kegiatan-list" style="font-size:11px;"></div>
+          </div>
+        </div>
+
+        <div id="info-kontrak-baru" class="d-none">
+          <div class="alert alert-success py-2" style="font-size:12px;">
+            <i class="bi bi-plus-circle me-1"></i>
+            Belum ada kontrak bulan ini. Kontrak <strong>baru</strong> akan dibuat otomatis.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ganti Rugi & Total -->
+    <div class="card">
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label fw-medium" style="font-size:13px;">Tambahan Ganti Rugi (Rp)</label>
+          <input type="number" name="total_ganti_rugi" class="form-control" value="0" min="0">
+          <div class="form-text">Akan ditambahkan ke ganti rugi yang sudah ada.</div>
+        </div>
+        <div class="border-top pt-3">
+          <div class="text-muted mb-1" style="font-size:12px;">Total Honor Baru (dari form ini)</div>
+          <div class="fw-bold fs-5 text-primary" id="total-honor-display">Rp 0</div>
+          <div class="text-muted mt-1" style="font-size:12px;">Fungsi form ini</div>
+          <div class="fw-medium" id="fungsi-display">—</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- KOLOM KANAN: Tabel Kegiatan -->
+  <div class="col-md-7">
+    <div class="card">
+      <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 fw-semibold">
+          <span class="badge bg-primary me-2">3</span>Input Kegiatan
+          <span class="badge bg-secondary ms-1" id="badge-fungsi-kegiatan">—</span>
+        </h6>
+        <button type="button" class="btn btn-outline-success btn-sm" id="btn-tambah">
+          <i class="bi bi-plus-lg me-1"></i>Tambah Baris
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-bordered mb-0" style="font-size:12px; min-width:750px;">
+            <thead style="background:#f8f9fb;">
+              <tr>
+                <th style="min-width:180px;">Nama Kegiatan</th>
+                <th style="min-width:105px;">Tgl Mulai</th>
+                <th style="min-width:105px;">Tgl Selesai</th>
+                <th style="min-width:55px;">Vol</th>
+                <th style="min-width:80px;">Satuan</th>
+                <th style="min-width:110px;">Honor/Sat</th>
+                <th style="min-width:110px;">Honor Total</th>
+                <th style="min-width:100px;">Mata Akun</th>
+                <th style="width:36px;"></th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-3 d-flex gap-2">
+      <button type="submit" class="btn btn-bps btn-lg">
+        <i class="bi bi-check-lg me-1"></i>Simpan Kegiatan
+      </button>
+      <a href="{{ url_for('main.daftar_kontrak') }}" class="btn btn-outline-secondary">Lihat Semua Kontrak</a>
+    </div>
+  </div>
+
+</div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function fmtRp(v) { return 'Rp ' + parseFloat(v||0).toLocaleString('id-ID'); }
+
+function hitungTotal() {
+  let total = 0;
+  document.querySelectorAll('#tbody tr').forEach(tr => {
+    const vol  = parseFloat(tr.querySelector('.inp-vol')?.value  || 0);
+    const hsat = parseFloat(tr.querySelector('.inp-hsat')?.value || 0);
+    const htot = vol * hsat;
+    const disp = tr.querySelector('.disp-htot');
+    const inp  = tr.querySelector('.inp-htot');
+    if (disp) disp.textContent = fmtRp(htot);
+    if (inp)  inp.value = htot;
+    total += htot;
+  });
+  document.getElementById('total-honor-display').textContent = fmtRp(total);
+}
+
+function buatBaris() {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="text" name="nama_kegiatan" class="form-control form-control-sm"
+         placeholder="Nama kegiatan" required></td>
+    <td><input type="date" name="tgl_mulai" class="form-control form-control-sm" required></td>
+    <td><input type="date" name="tgl_selesai" class="form-control form-control-sm" required></td>
+    <td><input type="number" name="volume" class="form-control form-control-sm inp-vol"
+         value="1" min="1" required></td>
+    <td>
+      <select name="satuan" class="form-select form-select-sm">
+        <option>OH</option><option>Hari</option><option>Kali</option>
+        <option>Dokumen</option><option>Responden</option>
+      </select>
+    </td>
+    <td><input type="number" name="honor_satuan" class="form-control form-control-sm inp-hsat"
+         value="0" min="0" step="1000" required></td>
+    <td>
+      <input type="hidden" name="honor_total" class="inp-htot" value="0">
+      <span class="disp-htot text-muted">Rp 0</span>
+    </td>
+    <td><input type="text" name="mata_akun" class="form-control form-control-sm"
+         placeholder="Kode akun" required></td>
+    <td>
+      <button type="button" class="btn btn-outline-danger btn-sm btn-hapus">
+        <i class="bi bi-x"></i>
+      </button>
+    </td>`;
+  tr.querySelectorAll('.inp-vol,.inp-hsat').forEach(el =>
+    el.addEventListener('input', hitungTotal));
+  tr.querySelector('.btn-hapus').addEventListener('click', () => { tr.remove(); hitungTotal(); });
+  document.getElementById('tbody').appendChild(tr);
+}
+
+// Update badge fungsi di header tabel
+document.getElementById('sel-fungsi').addEventListener('change', function() {
+  const f = this.value;
+  document.getElementById('badge-fungsi-kegiatan').textContent = f || '—';
+  document.getElementById('fungsi-display').textContent = f || '—';
+});
+
+// Cek kontrak existing saat pilih petugas / bulan / tahun berubah
+function cekKontrak() {
+  const pid   = document.getElementById('sel-petugas').value;
+  const bulan = document.getElementById('sel-bulan').value;
+  const tahun = document.getElementById('inp-tahun').value;
+  const infoAda  = document.getElementById('info-kontrak');
+  const infoBaru = document.getElementById('info-kontrak-baru');
+
+  if (!pid || !bulan || !tahun) {
+    infoAda.classList.add('d-none');
+    infoBaru.classList.add('d-none');
+    return;
+  }
+
+  fetch(`/api/cek-kontrak?petugas_id=${pid}&bulan=${bulan}&tahun=${tahun}`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.ada) {
+        document.getElementById('info-nomor-spk').textContent    = data.nomor_spk;
+        document.getElementById('info-fungsi').textContent       = data.fungsi_dominan || '—';
+        document.getElementById('info-honor').textContent        = fmtRp(data.total_honor);
+        document.getElementById('info-jml-kegiatan').textContent = data.jumlah_kegiatan + ' kegiatan';
+
+        // Tampilkan daftar kegiatan
+        const listEl = document.getElementById('info-kegiatan-list');
+        listEl.innerHTML = data.kegiatan.map(k =>
+          `<div class="d-flex justify-content-between border-bottom py-1">
+            <span><span class="badge bg-secondary bg-opacity-25 text-secondary me-1">${k.fungsi}</span>${k.nama}</span>
+            <span class="text-muted">${fmtRp(k.honor_total)}</span>
+          </div>`
+        ).join('');
+
+        infoAda.classList.remove('d-none');
+        infoBaru.classList.add('d-none');
+      } else {
+        infoAda.classList.add('d-none');
+        infoBaru.classList.remove('d-none');
+      }
+    });
+}
+
+function previewTglSurat() {
+  const bulan = parseInt(document.getElementById('sel-bulan').value);
+  const tahun = parseInt(document.getElementById('inp-tahun').value);
+  if (!bulan || !tahun) return;
+  const bSblm = bulan === 1 ? 12 : bulan - 1;
+  const tSblm = bulan === 1 ? tahun - 1 : tahun;
+  const hari  = new Date(tSblm, bSblm, 0).getDate(); // hari terakhir bulan sblm
+  const BULAN = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'];
+  document.getElementById('tgl-surat-preview').textContent =
+    `${hari} ${BULAN[bSblm]} ${tSblm}`;
+}
+['sel-bulan','inp-tahun'].forEach(id =>
+  document.getElementById(id).addEventListener('change', previewTglSurat));
+previewTglSurat();
+
+['sel-petugas','sel-bulan','inp-tahun'].forEach(id =>
+  document.getElementById(id).addEventListener('change', cekKontrak));
+
+document.getElementById('btn-tambah').addEventListener('click', buatBaris);
+
+function hitungSemuaSebelumSubmit() {
+  // Pastikan semua honor_total terupdate sebelum form dikirim
+  document.querySelectorAll('#tbody tr').forEach(tr => {
+    const vol  = parseFloat(tr.querySelector('.inp-vol')?.value  || 0);
+    const hsat = parseFloat(tr.querySelector('.inp-hsat')?.value || 0);
+    const htot = vol * hsat;
+    const inp  = tr.querySelector('.inp-htot');
+    if (inp) inp.value = htot;
+  });
+}
+
+// Mulai dengan 1 baris kosong
+buatBaris();
+</script>
+{% endblock %}

@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% block title %}Detail Kontrak{% endblock %}
+{% block page_title %}Detail Kontrak{% endblock %}
+
+{% block content %}
+{% set nama_bulan = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] %}
+
+<div class="d-flex gap-2 mb-3 flex-wrap">
+  <a href="{{ url_for('main.daftar_kontrak') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Kembali
+  </a>
+  <a href="{{ url_for('main.entri_kontrak') }}" class="btn btn-outline-success btn-sm">
+    <i class="bi bi-pencil-square me-1"></i>Tambah Kegiatan
+  </a>
+  <a href="{{ url_for('main.edit_kontrak', id=kontrak.id) }}" class="btn btn-outline-warning btn-sm">
+    <i class="bi bi-pencil me-1"></i>Edit Kontrak
+  </a>
+  <a href="{{ url_for('main.generate_spk', id=kontrak.id) }}" class="btn btn-bps btn-sm">
+    <i class="bi bi-file-word me-1"></i>Unduh SPK (.docx)
+  </a>
+  <a href="{{ url_for('main.generate_bast', id=kontrak.id) }}" class="btn btn-outline-primary btn-sm">
+    <i class="bi bi-file-earmark-word me-1"></i>Unduh BAST (.docx)
+  </a>
+</div>
+
+<div class="row g-3">
+  <!-- Info Kontrak -->
+  <div class="col-md-5">
+    <div class="card">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold">Informasi Surat Kontrak</h6>
+      </div>
+      <div class="card-body" style="font-size:13px;">
+        {% macro baris(label, nilai, bold=false) %}
+        <div class="row mb-2">
+          <div class="col-5 text-muted">{{ label }}</div>
+          <div class="col-7 {% if bold %}fw-bold text-primary{% else %}fw-medium{% endif %}">{{ nilai }}</div>
+        </div>
+        {% endmacro %}
+
+        <div class="alert alert-success py-2 mb-3" style="font-size:12px;">
+          <i class="bi bi-hash me-1"></i>
+          <strong>SPK:</strong> {{ kontrak.nomor_spk }}<br>
+          <i class="bi bi-hash me-1"></i>
+          <strong>BAST:</strong> {{ kontrak.nomor_bast }}
+        </div>
+
+        {{ baris('Fungsi Dominan', (kontrak.nama_fungsi or '-') ~ ' (' ~ (kontrak.kode_fungsi or '-') ~ ')') }}
+        {{ baris('Tanggal Surat', kontrak.tanggal_surat.strftime('%d %B %Y')) }}
+        {{ baris('Tanggal Mulai', kontrak.tanggal_mulai.strftime('%d %B %Y')) }}
+        {{ baris('Tanggal Selesai', kontrak.tanggal_selesai.strftime('%d %B %Y')) }}
+        {{ baris('Periode', nama_bulan[kontrak.bulan] ~ ' ' ~ kontrak.tahun) }}
+        <hr>
+        {{ baris('Petugas', kontrak.petugas.nama) }}
+        {{ baris('Jabatan', kontrak.petugas.jabatan or '-') }}
+        {{ baris('Alamat', kontrak.petugas.alamat or '-') }}
+        <hr>
+        {{ baris('Total Honor', 'Rp ' ~ '{:,.0f}'.format(kontrak.total_honor), bold=true) }}
+        {{ baris('Total Ganti Rugi', 'Rp ' ~ '{:,.0f}'.format(kontrak.total_ganti_rugi)) }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Lampiran Kegiatan -->
+  <div class="col-md-7">
+    <div class="card">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold">Lampiran Rincian Kegiatan</h6>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-bordered mb-0" style="font-size:12px;">
+            <thead style="background:#f8f9fb;">
+              <tr>
+                <th class="px-2">No</th>
+                <th>Fungsi</th>
+                <th>Nama Kegiatan</th>
+                <th>Periode</th>
+                <th>Vol</th>
+                <th>Sat</th>
+                <th>Honor/Sat</th>
+                <th>Honor Total</th>
+                <th>Mata Akun</th>
+                <th style="width:90px;">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for k in kontrak.kegiatan_list|sort(attribute='urutan') %}
+              <tr>
+                <td class="px-2 text-center text-muted">{{ loop.index }}</td>
+                <td><span class="badge bg-primary bg-opacity-10 text-primary">{{ k.fungsi }}</span></td>
+                <td>{{ k.nama_kegiatan }}</td>
+                <td class="text-muted" style="white-space:nowrap;">
+                  {{ k.tgl_mulai.strftime('%d/%m') }} – {{ k.tgl_selesai.strftime('%d/%m/%Y') }}
+                </td>
+                <td class="text-center">{{ k.volume }}</td>
+                <td class="text-center">{{ k.satuan }}</td>
+                <td class="text-end">{{ '{:,.0f}'.format(k.honor_satuan) }}</td>
+                <td class="text-end fw-medium">{{ '{:,.0f}'.format(k.honor_total) }}</td>
+                <td class="text-muted">{{ k.mata_akun }}</td>
+                <td>
+                  <a href="{{ url_for('main.edit_kegiatan', id=k.id) }}"
+                     class="btn btn-outline-warning btn-sm me-1">
+                    <i class="bi bi-pencil"></i>
+                  </a>
+                  <form action="{{ url_for('main.hapus_kegiatan', id=k.id) }}"
+                        method="POST" class="d-inline"
+                        onsubmit="return confirm('Hapus kegiatan ini?')">
+                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="9" class="text-center text-muted py-3">Tidak ada kegiatan.</td></tr>
+              {% endfor %}
+            </tbody>
+            <tfoot style="background:#f8f9fb;">
+              <tr>
+                <td colspan="7" class="text-end fw-bold px-2">Total Honor</td>
+                <td class="text-end fw-bold text-primary">{{ '{:,.0f}'.format(kontrak.total_honor) }}</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

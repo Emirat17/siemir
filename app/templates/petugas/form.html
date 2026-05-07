@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{% block title %}{{ judul }}{% endblock %}
+{% block page_title %}{{ judul }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-9">
+    <div class="card">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold">{{ judul }}</h6>
+      </div>
+      <div class="card-body">
+        <form method="POST">
+          <div class="row g-3">
+
+            <!-- Identitas -->
+            <div class="col-12"><h6 class="text-muted" style="font-size:12px; text-transform:uppercase; letter-spacing:1px;">Identitas</h6></div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-medium" style="font-size:13px;">Nama Lengkap <span class="text-danger">*</span></label>
+              <input type="text" name="nama" class="form-control"
+                     value="{{ petugas.nama if petugas else '' }}" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-medium" style="font-size:13px;">Jabatan</label>
+              <input type="text" name="jabatan" class="form-control"
+                     value="{{ petugas.jabatan if petugas else '' }}" placeholder="Mitra">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-medium" style="font-size:13px;">Posisi</label>
+              <input type="text" name="posisi" class="form-control"
+                     value="{{ petugas.posisi if petugas else '' }}" placeholder="Pendataan dan Pengolahan">
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-medium" style="font-size:13px;">Tempat, Tanggal Lahir</label>
+              <input type="text" name="tempat_tgl_lahir" class="form-control"
+                     value="{{ petugas.tempat_tgl_lahir if petugas else '' }}"
+                     placeholder="Kota, DD Bulan YYYY">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-medium" style="font-size:13px;">Jenis Kelamin</label>
+              <select name="jenis_kelamin" class="form-select">
+                <option value="">— Pilih —</option>
+                <option value="Lk" {{ 'selected' if petugas and petugas.jenis_kelamin == 'Lk' }}>Laki-laki</option>
+                <option value="Pr" {{ 'selected' if petugas and petugas.jenis_kelamin == 'Pr' }}>Perempuan</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-medium" style="font-size:13px;">Pendidikan</label>
+              <input type="text" name="pendidikan" class="form-control"
+                     value="{{ petugas.pendidikan if petugas else '' }}" placeholder="Tamat D4/S1">
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-medium" style="font-size:13px;">Pekerjaan</label>
+              <input type="text" name="pekerjaan" class="form-control"
+                     value="{{ petugas.pekerjaan if petugas else '' }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-medium" style="font-size:13px;">Deskripsi Pekerjaan Lain</label>
+              <input type="text" name="deskripsi_pekerjaan" class="form-control"
+                     value="{{ petugas.deskripsi_pekerjaan if petugas else '' }}">
+            </div>
+
+            <!-- Alamat -->
+            <div class="col-12"><hr class="my-1"><h6 class="text-muted" style="font-size:12px; text-transform:uppercase; letter-spacing:1px;">Alamat</h6></div>
+
+            <div class="col-12">
+              <label class="form-label fw-medium" style="font-size:13px;">Alamat Detail</label>
+              <textarea name="alamat" class="form-control" rows="2"
+                        placeholder="Nama jalan, RT/RW">{{ petugas.alamat if petugas else '' }}</textarea>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-medium" style="font-size:13px;">Provinsi</label>
+              <input type="text" name="alamat_provinsi" class="form-control"
+                     value="{{ petugas.alamat_provinsi if petugas else 'RIAU' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-medium" style="font-size:13px;">Kabupaten</label>
+              <input type="text" name="alamat_kabupaten" class="form-control"
+                     value="{{ petugas.alamat_kabupaten if petugas else 'KEPULAUAN MERANTI' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-medium" style="font-size:13px;">Kecamatan</label>
+              <input type="text" name="alamat_kecamatan" class="form-control"
+                     value="{{ petugas.alamat_kecamatan if petugas else '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-medium" style="font-size:13px;">Desa / Kelurahan</label>
+              <input type="text" name="alamat_desa" class="form-control"
+                     value="{{ petugas.alamat_desa if petugas else '' }}">
+            </div>
+
+            <!-- Kontak -->
+            <div class="col-12"><hr class="my-1"><h6 class="text-muted" style="font-size:12px; text-transform:uppercase; letter-spacing:1px;">Kontak & Identifikasi</h6></div>
+
+            <div class="col-md-4">
+              <label class="form-label fw-medium" style="font-size:13px;">No. Telepon</label>
+              <input type="text" name="no_telp" class="form-control"
+                     value="{{ petugas.no_telp if petugas else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-medium" style="font-size:13px;">SOBAT ID</label>
+              <input type="text" name="sobat_id" class="form-control"
+                     value="{{ petugas.sobat_id if petugas else '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-medium" style="font-size:13px;">Email</label>
+              <input type="email" name="email" class="form-control"
+                     value="{{ petugas.email if petugas else '' }}">
+            </div>
+
+            <div class="col-12 mt-2 d-flex gap-2">
+              <button type="submit" class="btn btn-bps">
+                <i class="bi bi-check-lg me-1"></i>Simpan
+              </button>
+              <a href="{{ url_for('main.daftar_petugas') }}" class="btn btn-outline-secondary">Batal</a>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

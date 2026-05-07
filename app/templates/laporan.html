@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+{% block title %}Laporan & Grafik{% endblock %}
+{% block page_title %}Laporan Penggunaan Mitra{% endblock %}
+
+{% block content %}
+{% set nama_bulan_list = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'] %}
+
+<!-- Filter tahun -->
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="GET" class="row g-3 align-items-end">
+      <div class="col-md-2">
+        <label class="form-label">Tahun</label>
+        <select name="tahun" class="form-select">
+          {% for y in tahun_list %}
+          <option value="{{ y }}" {{ 'selected' if y==tahun }}>{{ y }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-bps">
+          <i class="bi bi-bar-chart me-1"></i>Tampilkan
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <!-- Grafik: Jumlah Mitra per Bulan -->
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header">
+        <h6><i class="bi bi-people-fill me-2 text-primary"></i>Jumlah Mitra per Bulan {{ tahun }}</h6>
+      </div>
+      <div class="card-body">
+        <canvas id="chartMitra" height="220"></canvas>
+      </div>
+    </div>
+  </div>
+  <!-- Grafik: Total Honor per Bulan -->
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header">
+        <h6><i class="bi bi-cash-stack me-2 text-success"></i>Total Honor per Bulan {{ tahun }}</h6>
+      </div>
+      <div class="card-body">
+        <canvas id="chartHonor" height="220"></canvas>
+      </div>
+    </div>
+  </div>
+  <!-- Grafik: Mitra per Fungsi -->
+  <div class="col-md-5">
+    <div class="card h-100">
+      <div class="card-header">
+        <h6><i class="bi bi-pie-chart-fill me-2" style="color:#7C3AED;"></i>Distribusi Mitra per Fungsi {{ tahun }}</h6>
+      </div>
+      <div class="card-body d-flex align-items-center justify-content-center">
+        <canvas id="chartFungsi" height="240"></canvas>
+      </div>
+    </div>
+  </div>
+  <!-- Tabel: Rekap per Fungsi -->
+  <div class="col-md-7">
+    <div class="card h-100">
+      <div class="card-header">
+        <h6><i class="bi bi-table me-2 text-warning"></i>Rekap Honor per Fungsi {{ tahun }}</h6>
+      </div>
+      <div class="card-body p-0">
+        <table class="table mb-0">
+          <thead>
+            <tr>
+              <th class="px-3">Fungsi</th>
+              <th>Total Kontrak</th>
+              <th>Total Honor</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f, data in rekap_fungsi.items() %}
+            <tr>
+              <td class="px-3 fw-medium">{{ f }}</td>
+              <td>{{ data.jumlah }} kontrak</td>
+              <td class="fw-medium text-primary">Rp {{ '{:,.0f}'.format(data.honor) }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="3" class="text-center text-muted py-3">Belum ada data.</td></tr>
+            {% endfor %}
+          </tbody>
+          {% if rekap_fungsi %}
+          <tfoot style="background:#F7F9FD;">
+            <tr>
+              <td class="px-3 fw-bold">Total</td>
+              <td class="fw-bold">{{ rekap_fungsi.values()|sum(attribute='jumlah') }}</td>
+              <td class="fw-bold text-primary">
+                Rp {{ '{:,.0f}'.format(rekap_fungsi.values()|sum(attribute='honor')) }}
+              </td>
+            </tr>
+          </tfoot>
+          {% endif %}
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const LABELS_BULAN = {{ labels_bulan | tojson }};
+const DATA_MITRA   = {{ data_mitra   | tojson }};
+const DATA_HONOR   = {{ data_honor   | tojson }};
+const LABELS_FUNGSI= {{ labels_fungsi| tojson }};
+const DATA_FUNGSI  = {{ data_fungsi  | tojson }};
+
+const COLORS = ['#1341A0','#10B981','#F59E0B','#EF4444','#7C3AED','#0EA5E9'];
+
+// Chart 1: Mitra per Bulan
+new Chart(document.getElementById('chartMitra'), {
+  type: 'bar',
+  data: {
+    labels: LABELS_BULAN,
+    datasets: [{
+      label: 'Jumlah Mitra',
+      data: DATA_MITRA,
+      backgroundColor: '#1341A020',
+      borderColor: '#1341A0',
+      borderWidth: 2,
+      borderRadius: 6,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { beginAtZero: true, ticks: { stepSize: 1 },
+           grid: { color: '#F0F4FB' } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+// Chart 2: Honor per Bulan
+new Chart(document.getElementById('chartHonor'), {
+  type: 'line',
+  data: {
+    labels: LABELS_BULAN,
+    datasets: [{
+      label: 'Total Honor (Rp)',
+      data: DATA_HONOR,
+      borderColor: '#10B981',
+      backgroundColor: '#10B98115',
+      borderWidth: 2.5,
+      tension: 0.4,
+      fill: true,
+      pointBackgroundColor: '#10B981',
+      pointRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false },
+      tooltip: { callbacks: {
+        label: ctx => 'Rp ' + ctx.parsed.y.toLocaleString('id-ID')
+      }}
+    },
+    scales: {
+      y: { beginAtZero: true, grid: { color: '#F0F4FB' },
+           ticks: { callback: v => 'Rp ' + (v/1e6).toFixed(1) + 'jt' } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+// Chart 3: Donut Fungsi
+new Chart(document.getElementById('chartFungsi'), {
+  type: 'doughnut',
+  data: {
+    labels: LABELS_FUNGSI,
+    datasets: [{
+      data: DATA_FUNGSI,
+      backgroundColor: COLORS,
+      borderWidth: 0,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { position: 'right', labels: { font: { size: 12 }, padding: 12 } }
+    },
+    cutout: '60%',
+  }
+});
+</script>
+{% endblock %}

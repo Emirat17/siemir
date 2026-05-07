@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% block title %}Rekap Honor Mitra{% endblock %}
+{% block page_title %}Rekap Honor Mitra per Bulan{% endblock %}
+{% block content %}
+{% set nama_bulan = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] %}
+
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="GET" class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label">Bulan</label>
+        <select name="bulan" class="form-select">
+          <option value="">— Semua Bulan —</option>
+          {% for i in range(1,13) %}
+          <option value="{{ i }}" {{ 'selected' if bulan==i }}>{{ nama_bulan[i] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Tahun</label>
+        <input type="number" name="tahun" class="form-control"
+               value="{{ tahun or 2026 }}">
+      </div>
+      <div class="col-md-2">
+        <button type="submit" class="btn btn-bps w-100">
+          <i class="bi bi-search me-1"></i>Tampilkan
+        </button>
+      </div>
+      {% if bulan and tahun %}
+      <div class="col-auto ms-auto align-self-end">
+        <span class="badge" style="background:#1341A0;font-size:13px;padding:8px 16px;">
+          {{ kontrak_list|length }} Mitra &nbsp;|&nbsp;
+          Total: Rp {{ '{:,.0f}'.format(kontrak_list|sum(attribute='total_honor')) }}
+        </span>
+      </div>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+{% if bulan and tahun %}
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h6>Rekap Honor — {{ nama_bulan[bulan] }} {{ tahun }}</h6>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr>
+            <th class="px-3" style="width:40px;">No</th>
+            <th>Nama Mitra</th>
+            <th>Kecamatan</th>
+            <th>Fungsi Dominan</th>
+            <th>Nomor SPK</th>
+            <th>Jml Kegiatan</th>
+            <th>Ganti Rugi</th>
+            <th>Total Honor</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set total_gr = namespace(val=0) %}
+          {% set total_h  = namespace(val=0) %}
+          {% for k in kontrak_list %}
+          {% set total_gr.val = total_gr.val + k.total_ganti_rugi|float %}
+          {% set total_h.val  = total_h.val  + k.total_honor|float %}
+          <tr>
+            <td class="px-3 text-muted">{{ loop.index }}</td>
+            <td class="fw-medium">{{ k.petugas.nama }}</td>
+            <td class="text-muted">{{ k.petugas.alamat_kecamatan or '—' }}</td>
+            <td>
+              <span class="badge-fungsi">{{ k.nama_fungsi or '—' }}</span>
+            </td>
+            <td style="font-size:12px;">{{ k.nomor_spk or '—' }}</td>
+            <td class="text-center">{{ k.kegiatan_list|length }}</td>
+            <td>Rp {{ '{:,.0f}'.format(k.total_ganti_rugi) }}</td>
+            <td class="fw-bold text-primary">Rp {{ '{:,.0f}'.format(k.total_honor) }}</td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="8" class="text-center text-muted py-5">
+              Tidak ada data untuk periode {{ nama_bulan[bulan] }} {{ tahun }}.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        {% if kontrak_list %}
+        <tfoot style="background:#F7F9FD;">
+          <tr>
+            <td colspan="6" class="text-end fw-bold px-3">TOTAL</td>
+            <td class="fw-bold">Rp {{ '{:,.0f}'.format(total_gr.val) }}</td>
+            <td class="fw-bold text-primary">Rp {{ '{:,.0f}'.format(total_h.val) }}</td>
+          </tr>
+        </tfoot>
+        {% endif %}
+      </table>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="text-center text-muted py-5">
+  <i class="bi bi-cash-stack fs-1 d-block mb-3 opacity-25"></i>
+  Pilih bulan dan tahun untuk menampilkan rekap honor.
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,228 @@
+{% extends 'base.html' %}
+{% block title %}{{ judul }}{% endblock %}
+{% block page_title %}{{ judul }}{% endblock %}
+
+{% block content %}
+{% set nama_bulan = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] %}
+
+<form method="POST" id="form-kontrak">
+<div class="row g-3">
+
+  <!-- KOLOM KIRI: Data Surat -->
+  <div class="col-md-5">
+    <div class="card">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-file-earmark-text me-2 text-primary"></i>Data Surat Kontrak</h6>
+      </div>
+      <div class="card-body">
+
+        <div class="mb-3">
+          <label class="form-label fw-medium" style="font-size:13px;">Petugas <span class="text-danger">*</span></label>
+          <select name="petugas_id" class="form-select" required>
+            <option value="">— Pilih Petugas —</option>
+            {% for p in petugas_list %}
+            <option value="{{ p.id }}">{{ p.nama }} — {{ p.jabatan or 'Mitra' }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="alert alert-info py-2" style="font-size:12px;">
+          <i class="bi bi-info-circle me-1"></i>
+          <strong>Nomor SPK & BAST</strong> akan digenerate otomatis berdasarkan fungsi dengan honor terbesar.
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-medium" style="font-size:13px;">Tanggal Surat <span class="text-danger">*</span></label>
+          <input type="date" name="tanggal_surat" class="form-control" required>
+        </div>
+
+        <div class="row g-2 mb-3">
+          <div class="col">
+            <label class="form-label fw-medium" style="font-size:13px;">Tanggal Mulai <span class="text-danger">*</span></label>
+            <input type="date" name="tanggal_mulai" class="form-control" required>
+          </div>
+          <div class="col">
+            <label class="form-label fw-medium" style="font-size:13px;">Tanggal Selesai <span class="text-danger">*</span></label>
+            <input type="date" name="tanggal_selesai" class="form-control" required>
+          </div>
+        </div>
+
+        <div class="row g-2 mb-3">
+          <div class="col">
+            <label class="form-label fw-medium" style="font-size:13px;">Bulan <span class="text-danger">*</span></label>
+            <select name="bulan" class="form-select" required>
+              {% for i in range(1,13) %}
+              <option value="{{ i }}">{{ nama_bulan[i] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col">
+            <label class="form-label fw-medium" style="font-size:13px;">Tahun <span class="text-danger">*</span></label>
+            <input type="number" name="tahun" class="form-control" value="2026" required>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-medium" style="font-size:13px;">Total Ganti Rugi (Rp)</label>
+          <input type="number" name="total_ganti_rugi" class="form-control" value="0" min="0">
+        </div>
+
+        <!-- Ringkasan honor -->
+        <div class="card bg-light border-0 p-3 mt-3">
+          <div class="text-muted mb-1" style="font-size:12px;">Total Honor (otomatis)</div>
+          <div class="fw-bold fs-5 text-primary" id="total-honor-display">Rp 0</div>
+          <div class="text-muted mt-2" style="font-size:12px;">Fungsi Dominan</div>
+          <div class="fw-medium" id="fungsi-dominan-display">—</div>
+          <div class="text-muted" style="font-size:11px;" id="kode-fungsi-display"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- KOLOM KANAN: Lampiran Kegiatan -->
+  <div class="col-md-7">
+    <div class="card">
+      <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-list-check me-2 text-success"></i>Lampiran Kegiatan Bulanan</h6>
+        <button type="button" class="btn btn-outline-success btn-sm" id="btn-tambah-baris">
+          <i class="bi bi-plus-lg me-1"></i>Tambah Baris
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-bordered mb-0" id="tabel-kegiatan" style="font-size:12px; min-width:950px;">
+            <thead style="background:#f8f9fb;">
+              <tr>
+                <th style="min-width:100px;">Fungsi</th>
+                <th style="min-width:180px;">Nama Kegiatan</th>
+                <th style="min-width:105px;">Tgl Mulai</th>
+                <th style="min-width:105px;">Tgl Selesai</th>
+                <th style="min-width:60px;">Vol</th>
+                <th style="min-width:80px;">Satuan</th>
+                <th style="min-width:110px;">Honor/Sat</th>
+                <th style="min-width:110px;">Honor Total</th>
+                <th style="min-width:110px;">Mata Akun</th>
+                <th style="width:36px;"></th>
+              </tr>
+            </thead>
+            <tbody id="tbody-kegiatan"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="mt-3 d-flex gap-2">
+  <button type="submit" class="btn btn-bps">
+    <i class="bi bi-check-lg me-1"></i>Simpan & Generate Nomor
+  </button>
+  <a href="{{ url_for('main.daftar_kontrak') }}" class="btn btn-outline-secondary">Batal</a>
+</div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const FUNGSI_KODE = {
+  'Umum':       '14.101',
+  'Sosial':     '14.102',
+  'Produksi':   '14.103',
+  'Distribusi': '14.104',
+  'Nerwilis':   '14.105',
+  'IPDS':       '14.106',
+};
+const FUNGSI_LIST = {{ fungsi_list | tojson }};
+const tbody = document.getElementById('tbody-kegiatan');
+
+function fmtRp(val) {
+  return 'Rp ' + parseFloat(val || 0).toLocaleString('id-ID');
+}
+
+function hitungSemua() {
+  const honorPerFungsi = {};
+  FUNGSI_LIST.forEach(f => honorPerFungsi[f] = 0);
+  let total = 0;
+
+  tbody.querySelectorAll('tr').forEach(tr => {
+    const fungsi = tr.querySelector('.inp-fungsi')?.value;
+    const vol    = parseFloat(tr.querySelector('.inp-vol')?.value  || 0);
+    const hsat   = parseFloat(tr.querySelector('.inp-hsat')?.value || 0);
+    const htot   = vol * hsat;
+    const disp   = tr.querySelector('.disp-htot');
+    const inp    = tr.querySelector('.inp-htot');
+    if (disp) disp.textContent = fmtRp(htot);
+    if (inp)  inp.value = htot;
+    if (fungsi) honorPerFungsi[fungsi] = (honorPerFungsi[fungsi] || 0) + htot;
+    total += htot;
+  });
+
+  document.getElementById('total-honor-display').textContent = fmtRp(total);
+
+  // Fungsi dominan
+  let dominan = null; let maxHonor = -1;
+  for (const [f, h] of Object.entries(honorPerFungsi)) {
+    if (h > maxHonor) { maxHonor = h; dominan = f; }
+  }
+  if (dominan && maxHonor > 0) {
+    document.getElementById('fungsi-dominan-display').textContent = dominan;
+    document.getElementById('kode-fungsi-display').textContent = 'Kode: ' + FUNGSI_KODE[dominan];
+  } else {
+    document.getElementById('fungsi-dominan-display').textContent = '—';
+    document.getElementById('kode-fungsi-display').textContent = '';
+  }
+}
+
+function buatOpsiSatuan(val) {
+  return ['OH','Hari','Kali','Dokumen','Responden']
+    .map(s => `<option${s===val?' selected':''}>${s}</option>`).join('');
+}
+
+function buatOpsisFungsi(val) {
+  return FUNGSI_LIST
+    .map(f => `<option${f===val?' selected':''}>${f}</option>`).join('');
+}
+
+function buatBaris(data={}) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>
+      <select name="fungsi" class="form-select form-select-sm inp-fungsi" required>
+        ${buatOpsisFungsi(data.fungsi||'')}
+      </select>
+    </td>
+    <td><input type="text" name="nama_kegiatan" class="form-control form-control-sm"
+         value="${data.nama||''}" placeholder="Nama kegiatan" required></td>
+    <td><input type="date" name="tgl_mulai" class="form-control form-control-sm"
+         value="${data.tgl_mulai||''}" required></td>
+    <td><input type="date" name="tgl_selesai" class="form-control form-control-sm"
+         value="${data.tgl_selesai||''}" required></td>
+    <td><input type="number" name="volume" class="form-control form-control-sm inp-vol"
+         value="${data.volume||1}" min="1" required></td>
+    <td><select name="satuan" class="form-select form-select-sm">${buatOpsiSatuan(data.satuan||'OH')}</select></td>
+    <td><input type="number" name="honor_satuan" class="form-control form-control-sm inp-hsat"
+         value="${data.honor_satuan||0}" min="0" step="1000" required></td>
+    <td>
+      <input type="hidden" name="honor_total" class="inp-htot" value="0">
+      <span class="disp-htot text-muted">Rp 0</span>
+    </td>
+    <td><input type="text" name="mata_akun" class="form-control form-control-sm"
+         value="${data.mata_akun||''}" placeholder="Kode akun" required></td>
+    <td>
+      <button type="button" class="btn btn-outline-danger btn-sm btn-hapus">
+        <i class="bi bi-x"></i>
+      </button>
+    </td>`;
+  tr.querySelectorAll('.inp-vol,.inp-hsat,.inp-fungsi').forEach(el =>
+    el.addEventListener('input', hitungSemua));
+  tr.querySelector('.btn-hapus').addEventListener('click', () => { tr.remove(); hitungSemua(); });
+  tbody.appendChild(tr);
+  hitungSemua();
+}
+
+buatBaris();
+document.getElementById('btn-tambah-baris').addEventListener('click', () => buatBaris());
+</script>
+{% endblock %}

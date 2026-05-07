@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block title %}{{ judul }}{% endblock %}
+{% block page_title %}{{ judul }}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-7">
+    <div class="card">
+      <div class="card-header py-3">
+        <h6>{{ judul }}</h6>
+      </div>
+      <div class="card-body">
+        <form method="POST">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Username <span class="text-danger">*</span></label>
+              <input type="text" name="username" class="form-control"
+                     value="{{ user.username if user else '' }}"
+                     {{ 'readonly' if user else '' }} required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Nama Lengkap <span class="text-danger">*</span></label>
+              <input type="text" name="nama_lengkap" class="form-control"
+                     value="{{ user.nama_lengkap if user else '' }}" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Password {% if not user %}<span class="text-danger">*</span>{% endif %}</label>
+              <input type="password" name="password" class="form-control"
+                     placeholder="{{ 'Kosongkan jika tidak diubah' if user else 'Password' }}"
+                     {{ '' if user else 'required' }}>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Role <span class="text-danger">*</span></label>
+              <select name="role" id="sel-role" class="form-select" onchange="toggleFungsi()" required>
+                <option value="admin_kabupaten" {{ 'selected' if user and user.role=='admin_kabupaten' }}>Admin Kabupaten</option>
+                <option value="ppk"             {{ 'selected' if user and user.role=='ppk' }}>PPK</option>
+                <option value="admin_fungsi"    {{ 'selected' if user and user.role=='admin_fungsi' }}>Admin Fungsi</option>
+              </select>
+            </div>
+            <div class="col-md-6" id="div-fungsi">
+              <label class="form-label">Fungsi (khusus Admin Fungsi)</label>
+              <select name="fungsi" class="form-select">
+                <option value="">— Pilih Fungsi —</option>
+                {% for f in fungsi_list %}
+                <option value="{{ f }}" {{ 'selected' if user and user.fungsi == f }}>{{ f }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            {% if user %}
+            <div class="col-md-6">
+              <label class="form-label">Status</label>
+              <div class="form-check mt-2">
+                <input class="form-check-input" type="checkbox" name="aktif" id="chk-aktif"
+                       {{ 'checked' if user.aktif }}>
+                <label class="form-check-label" for="chk-aktif">Akun Aktif</label>
+              </div>
+            </div>
+            {% endif %}
+            <div class="col-12 d-flex gap-2 mt-2">
+              <button type="submit" class="btn btn-bps">
+                <i class="bi bi-check-lg me-1"></i>Simpan
+              </button>
+              <a href="{{ url_for('auth.daftar_pengguna') }}" class="btn btn-outline-secondary">Batal</a>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function toggleFungsi() {
+  const role = document.getElementById('sel-role').value;
+  document.getElementById('div-fungsi').style.display =
+    role === 'admin_fungsi' ? 'block' : 'none';
+}
+toggleFungsi();
+</script>
+{% endblock %}

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Times New Roman',serif; font-size:12pt; color:#000; }
+  .page { width:21cm; padding:2.5cm 3cm 2cm 3cm; }
+  .kop { text-align:center; border-bottom:3px double #000; padding-bottom:10px; margin-bottom:16px; }
+  .kop h2 { font-size:14pt; text-transform:uppercase; letter-spacing:1px; }
+  .kop h3 { font-size:12pt; font-weight:normal; }
+  .kop p  { font-size:10pt; margin-top:2px; }
+  .judul-surat { text-align:center; margin:20px 0 16px; }
+  .judul-surat h3 { font-size:13pt; text-decoration:underline; text-transform:uppercase; font-weight:bold; }
+  .judul-surat p  { font-size:11pt; margin-top:4px; }
+  .isi p { text-align:justify; line-height:1.8; margin-bottom:6px; font-size:11.5pt; }
+  table.info { font-size:11.5pt; width:100%; margin:10px 0; }
+  table.info td { padding:2px 0; vertical-align:top; }
+  table.info td:first-child { width:180px; }
+  table.lampiran { width:100%; border-collapse:collapse; margin-top:10px; font-size:10pt; }
+  table.lampiran th, table.lampiran td { border:1px solid #000; padding:4px 5px; }
+  table.lampiran th { background:#f0f0f0; text-align:center; }
+  table.lampiran td.center { text-align:center; }
+  table.lampiran td.right  { text-align:right; }
+  table.lampiran tfoot td  { font-weight:bold; background:#f0f0f0; }
+  .fungsi-group td { background:#e8f0fb; font-weight:bold; }
+  .ttd { margin-top:28px; display:flex; justify-content:space-between; }
+  .ttd-blok { width:45%; text-align:center; font-size:11pt; }
+  .ttd-blok .nama { margin-top:56px; font-weight:bold; text-decoration:underline; }
+  .ttd-blok .nip  { font-size:10pt; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="kop">
+    <h2>Badan Pusat Statistik</h2>
+    <h3>Kabupaten Kepulauan Meranti</h3>
+    <p>Jl. Dorak No. 11, Selatpanjang 28753 &nbsp;|&nbsp; Telp. (0763) 31234</p>
+  </div>
+
+  <div class="judul-surat">
+    <h3>Berita Acara Serah Terima (BAST)</h3>
+    <p>Nomor: {{ kontrak.nomor_bast }}</p>
+  </div>
+
+  <div class="isi">
+    <p>Pada hari ini, <strong>{{ kontrak.tanggal_selesai.strftime('%d %B %Y') }}</strong>,
+    telah dilaksanakan serah terima hasil pekerjaan kegiatan statistik antara:</p>
+
+    <table class="info">
+      <tr><td><strong>Pihak Pertama (PPK)</strong></td><td>: BPS Kabupaten Kepulauan Meranti</td></tr>
+      <tr><td><strong>Pihak Kedua</strong></td><td>: {{ kontrak.petugas.nama }}</td></tr>
+      <tr><td>Jabatan</td><td>: {{ kontrak.petugas.jabatan or 'Mitra' }}</td></tr>
+      <tr><td>Alamat</td><td>: {{ kontrak.petugas.alamat or '-' }}</td></tr>
+    </table>
+
+    <p>Pihak Kedua telah menyelesaikan seluruh kegiatan sesuai dengan Surat Perjanjian Kerja (SPK)
+    Nomor <strong>{{ kontrak.nomor_spk }}</strong> untuk periode
+    <strong>{{ kontrak.tanggal_mulai.strftime('%d %B %Y') }}</strong> s.d.
+    <strong>{{ kontrak.tanggal_selesai.strftime('%d %B %Y') }}</strong>
+    dengan rincian kegiatan sebagai berikut:</p>
+  </div>
+
+  <table class="lampiran">
+    <thead>
+      <tr>
+        <th style="width:28px;">No</th>
+        <th>Nama Kegiatan</th>
+        <th style="width:95px;">Jangka Waktu</th>
+        <th style="width:38px;">Vol</th>
+        <th style="width:50px;">Sat</th>
+        <th style="width:95px;">Honor/Sat (Rp)</th>
+        <th style="width:105px;">Honor Total (Rp)</th>
+        <th style="width:85px;">Mata Akun</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% set kegiatan_sorted = kontrak.kegiatan_list|sort(attribute='fungsi') %}
+      {% set ns = namespace(current_fungsi='', no=0) %}
+      {% for k in kegiatan_sorted %}
+        {% if k.fungsi != ns.current_fungsi %}
+          {% set ns.current_fungsi = k.fungsi %}
+          <tr class="fungsi-group">
+            <td colspan="8" style="padding-left:6px;">Fungsi: {{ k.fungsi }}</td>
+          </tr>
+        {% endif %}
+        {% set ns.no = ns.no + 1 %}
+        <tr>
+          <td class="center">{{ ns.no }}</td>
+          <td>{{ k.nama_kegiatan }}</td>
+          <td class="center">{{ k.tgl_mulai.strftime('%d/%m') }} – {{ k.tgl_selesai.strftime('%d/%m/%y') }}</td>
+          <td class="center">{{ k.volume }}</td>
+          <td class="center">{{ k.satuan }}</td>
+          <td class="right">{{ '{:,.0f}'.format(k.honor_satuan) }}</td>
+          <td class="right">{{ '{:,.0f}'.format(k.honor_total) }}</td>
+          <td class="center">{{ k.mata_akun }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="6" style="text-align:right; padding-right:6px;">Total Honor</td>
+        <td class="right">{{ '{:,.0f}'.format(kontrak.total_honor) }}</td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <div class="isi" style="margin-top:12px;">
+    <p>Demikian berita acara ini dibuat dengan sebenarnya untuk dipergunakan sebagaimana mestinya.</p>
+  </div>
+
+  <div class="ttd">
+    <div class="ttd-blok">
+      <p>Yang Menyerahkan,</p>
+      <p>Pihak Kedua</p>
+      <div class="nama">{{ kontrak.petugas.nama }}</div>
+    </div>
+    <div class="ttd-blok">
+      <p>Selatpanjang, {{ kontrak.tanggal_selesai.strftime('%d %B %Y') }}</p>
+      <p>Yang Menerima,<br>Pihak Pertama / PPK</p>
+      <div class="nama">____________________</div>
+      <div class="nip">NIP. ____________________</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

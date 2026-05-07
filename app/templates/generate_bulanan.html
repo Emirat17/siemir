@@ -1,0 +1,172 @@
+{% extends 'base.html' %}
+{% block title %}Generate Dokumen Bulanan{% endblock %}
+{% block page_title %}Generate Dokumen Bulanan{% endblock %}
+
+{% block content %}
+{% set nama_bulan = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] %}
+
+<!-- Filter Periode -->
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="GET" class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label fw-medium" style="font-size:13px;">Bulan</label>
+        <select name="bulan" class="form-select">
+          <option value="">— Pilih Bulan —</option>
+          {% for i in range(1,13) %}
+          <option value="{{ i }}" {{ 'selected' if bulan == i }}>{{ nama_bulan[i] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label fw-medium" style="font-size:13px;">Tahun</label>
+        <input type="number" name="tahun" class="form-control"
+               value="{{ tahun or 2026 }}" min="2020" max="2030">
+      </div>
+      <div class="col-md-2">
+        <button type="submit" class="btn btn-bps w-100">
+          <i class="bi bi-search me-1"></i>Tampilkan
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if bulan and tahun %}
+<!-- Rekap Kontrak Bulan Ini -->
+<div class="card mb-3">
+  <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+    <h6 class="mb-0 fw-semibold">
+      <i class="bi bi-calendar3 me-2 text-primary"></i>
+      Rekap Kontrak — {{ nama_bulan[bulan] }} {{ tahun }}
+      <span class="badge bg-primary bg-opacity-10 text-primary ms-2">{{ kontrak_list|length }} petugas</span>
+    </h6>
+    <div class="d-flex gap-2">
+      {% if kontrak_list %}
+      <a href="{{ url_for('main.merge_spk', bulan=bulan, tahun=tahun) }}"
+         class="btn btn-bps btn-sm">
+        <i class="bi bi-file-word me-1"></i>Merge Semua SPK
+      </a>
+      <a href="{{ url_for('main.merge_bast', bulan=bulan, tahun=tahun) }}"
+         class="btn btn-outline-primary btn-sm">
+        <i class="bi bi-file-earmark-word me-1"></i>Merge Semua BAST
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0" style="font-size:13px;">
+        <thead style="background:#f8f9fb;">
+          <tr>
+            <th class="px-3" style="width:40px;">No</th>
+            <th>Nama Petugas</th>
+            <th>Nomor SPK</th>
+            <th>Nomor BAST</th>
+            <th>Fungsi Dominan</th>
+            <th>Kegiatan</th>
+            <th>Total Honor</th>
+            <th style="width:160px;">Dokumen</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for k in kontrak_list %}
+          <tr>
+            <td class="px-3 text-muted">{{ loop.index }}</td>
+            <td class="fw-medium">{{ k.petugas.nama }}</td>
+            <td style="font-size:12px;">{{ k.nomor_spk or '-' }}</td>
+            <td style="font-size:12px;">{{ k.nomor_bast or '-' }}</td>
+            <td>
+              <span class="badge bg-primary bg-opacity-10 text-primary">
+                {{ k.nama_fungsi or '-' }}
+              </span>
+            </td>
+            <td class="text-center">{{ k.kegiatan_list|length }}</td>
+            <td class="fw-medium">Rp {{ '{:,.0f}'.format(k.total_honor) }}</td>
+            <td>
+              <a href="{{ url_for('main.generate_spk', id=k.id) }}"
+                 class="btn btn-bps btn-sm me-1" title="Unduh SPK">
+                <i class="bi bi-file-word"></i> SPK
+              </a>
+              <a href="{{ url_for('main.generate_bast', id=k.id) }}"
+                 class="btn btn-outline-primary btn-sm" title="Unduh BAST">
+                <i class="bi bi-file-earmark-word"></i> BAST
+              </a>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="8" class="text-center text-muted py-5">
+              <i class="bi bi-inbox fs-2 d-block mb-2 opacity-25"></i>
+              Tidak ada kontrak untuk periode {{ nama_bulan[bulan] }} {{ tahun }}.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        {% if kontrak_list %}
+        <tfoot style="background:#f8f9fb;">
+          <tr>
+            <td colspan="6" class="text-end fw-bold px-3">Total Honor Semua Petugas</td>
+            <td class="fw-bold text-primary">
+              Rp {{ '{:,.0f}'.format(kontrak_list|sum(attribute='total_honor')) }}
+            </td>
+            <td></td>
+          </tr>
+        </tfoot>
+        {% endif %}
+      </table>
+    </div>
+  </div>
+</div>
+
+{% if kontrak_list %}
+<!-- Rekap per Fungsi -->
+<div class="card">
+  <div class="card-header bg-white py-3">
+    <h6 class="mb-0 fw-semibold">
+      <i class="bi bi-bar-chart me-2 text-success"></i>Rekap per Fungsi — {{ nama_bulan[bulan] }} {{ tahun }}
+    </h6>
+  </div>
+  <div class="card-body p-0">
+    <table class="table mb-0" style="font-size:13px;">
+      <thead style="background:#f8f9fb;">
+        <tr>
+          <th class="px-3">Fungsi</th>
+          <th>Kode</th>
+          <th>Jumlah Petugas</th>
+          <th>Total Honor</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set rekap = {} %}
+        {% for k in kontrak_list %}
+          {% set f = k.nama_fungsi or 'Lainnya' %}
+          {% if f not in rekap %}
+            {% set _ = rekap.update({f: {'kode': k.kode_fungsi, 'petugas': 0, 'honor': 0}}) %}
+          {% endif %}
+          {% set _ = rekap[f].update({'petugas': rekap[f].petugas + 1,
+                                      'honor': rekap[f].honor + k.total_honor|float}) %}
+        {% endfor %}
+        {% for f, data in rekap.items() %}
+        <tr>
+          <td class="px-3 fw-medium">{{ f }}</td>
+          <td class="text-muted">{{ data.kode or '-' }}</td>
+          <td>{{ data.petugas }} petugas</td>
+          <td class="fw-medium">Rp {{ '{:,.0f}'.format(data.honor) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="text-center text-muted py-5">
+  <i class="bi bi-calendar3 fs-1 d-block mb-3 opacity-25"></i>
+  <p>Pilih bulan dan tahun untuk menampilkan rekap kontrak.</p>
+</div>
+{% endif %}
+
+{% endblock %}
