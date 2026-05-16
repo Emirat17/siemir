@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}Daftar Kontrak{% endblock %}
-{% block page_title %}Kontrak (SPK & BAST){% endblock %}
+{% block page_title %}Daftar Penggunaan Mitra{% endblock %}
 
 {% block content %}
 {% set nama_bulan = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] %}
@@ -41,34 +41,61 @@
 
 <!-- Tabel -->
 <div class="card">
+  {% if bulan and tahun %}
+  {% set n_ttd = kontrak_list | selectattr('link_spk_ttd') | list | length %}
+  {% if n_ttd < kontrak_list|length %}
+  <div class="px-3 pt-2">
+    <div class="alert alert-warning py-1 mb-2" style="font-size:12px;">
+      <i class="bi bi-patch-check me-1"></i>
+      <strong>{{ kontrak_list|length - n_ttd }}</strong> SPK belum ada dokumen bertanda tangan.
+      Klik ikon <i class="bi bi-patch-check"></i> pada baris untuk menginput link.
+    </div>
+  </div>
+  {% endif %}
+  {% endif %}
   <div class="card-body p-0">
     <div class="table-responsive">
-    <table class="table table-hover mb-0" style="font-size:12.5px;">
+    <table id="tbl-kontrak" class="table table-hover mb-0" style="font-size:12.5px;">
       <thead style="background:#f8f9fb;">
         <tr>
-          <th class="px-3">Nomor SPK</th>
-          <th>Nomor BAST</th>
-          <th>Petugas</th>
-          <th>Fungsi Dominan</th>
-          <th>Periode</th>
-          <th>Kegiatan</th>
-          <th>Total Honor</th>
-          <th style="width:120px;"></th>
+          <th class="px-3" data-sort="text">Nomor SPK</th>
+          <th data-sort="text">Petugas</th>
+          <th data-sort="text">Fungsi Dominan</th>
+          <th data-sort="text">Periode</th>
+          <th data-sort="number">Kegiatan</th>
+          <th data-sort="number">Total Honor</th>
+          <th class="text-center" style="width:60px;">TTD</th>
+          <th style="width:80px;"></th>
         </tr>
       </thead>
       <tbody>
         {% for k in kontrak_list %}
         <tr>
           <td class="px-3 fw-medium" style="white-space:nowrap;">{{ k.nomor_spk or '-' }}</td>
-          <td style="white-space:nowrap;">{{ k.nomor_bast or '-' }}</td>
           <td>{{ k.petugas.nama }}</td>
           <td>
             <span class="badge bg-primary bg-opacity-10 text-primary">{{ k.nama_fungsi or '-' }}</span>
             <small class="text-muted d-block">{{ k.kode_fungsi or '' }}</small>
           </td>
           <td><span class="badge badge-bulan">{{ nama_bulan[k.bulan] }} {{ k.tahun }}</span></td>
-          <td class="text-center">{{ k.kegiatan_list|length }}</td>
+          <td class="text-center" data-val="{{ k.kegiatan_list|length }}">{{ k.kegiatan_list|length }}</td>
           <td class="fw-medium">Rp {{ '{:,.0f}'.format(k.total_honor) }}</td>
+          <td class="text-center">
+            {% if k.link_spk_ttd %}
+            <a href="{{ k.link_spk_ttd }}" target="_blank"
+               title="Lihat dokumen SPK bertanda tangan"
+               style="color:#065F46;font-size:20px;line-height:1;">
+              <i class="bi bi-patch-check-fill"></i>
+            </a>
+            {% else %}
+            <button type="button"
+                    onclick="bukaModalLinkSPK({{ k.id }}, '{{ k.nomor_spk }}')"
+                    title="Belum ada dokumen TTD — klik untuk input link"
+                    style="border:none;background:none;color:#CBD5E1;font-size:20px;line-height:1;cursor:pointer;">
+              <i class="bi bi-patch-check"></i>
+            </button>
+            {% endif %}
+          </td>
           <td>
             <a href="{{ url_for('main.detail_kontrak', id=k.id) }}"
                class="btn btn-outline-primary btn-sm me-1">Detail</a>
@@ -95,4 +122,51 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='sortable.js') }}"></script>
+<script>initSortableTable('tbl-kontrak'); initSearchRow('tbl-kontrak');</script>
+
+<!-- Modal Input Link SPK TTD -->
+<div class="modal fade" id="modalLinkSPK" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#0A2560;">
+        <h6 class="modal-title text-white">
+          <i class="bi bi-patch-check-fill me-2"></i>
+          Input Link Dokumen SPK Bertanda Tangan
+        </h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="form-link-spk" method="POST">
+        <div class="modal-body">
+          <div class="mb-1" style="font-size:12px;color:#6B7A99;">Nomor SPK:</div>
+          <div class="fw-semibold mb-3" id="lbl-nomor-spk" style="font-family:monospace;"></div>
+          <label class="form-label fw-medium">
+            Link Dokumen (Google Drive, OneDrive, dsb.)
+          </label>
+          <input type="url" name="link_spk_ttd" id="inp-link-spk"
+                 class="form-control" placeholder="https://drive.google.com/...">
+          <div class="form-text">Kosongkan untuk menghapus link yang ada.</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm"
+                  data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-bps btn-sm">
+            <i class="bi bi-save me-1"></i>Simpan Link
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+function bukaModalLinkSPK(id, nomor) {
+  document.getElementById('lbl-nomor-spk').textContent = nomor;
+  document.getElementById('form-link-spk').action = '/kontrak/' + id + '/link-ttd';
+  document.getElementById('inp-link-spk').value = '';
+  new bootstrap.Modal(document.getElementById('modalLinkSPK')).show();
+}
+</script>
 {% endblock %}

@@ -22,8 +22,14 @@ def role_required(*roles):
             if 'user_id' not in session:
                 flash('Silakan login terlebih dahulu.', 'warning')
                 return redirect(url_for('auth.login'))
-            if session.get('user_role') not in roles:
-                flash('Anda tidak memiliki akses ke halaman ini.', 'danger')
+            user_role = session.get('user_role')
+            if user_role not in roles:
+                # Pesan spesifik per kondisi
+                if user_role == 'ppk':
+                    flash('Fitur ini tidak tersedia untuk akun PPK. '
+                          'PPK hanya dapat melihat daftar dan mengunduh dokumen.', 'warning')
+                else:
+                    flash('Anda tidak memiliki akses ke halaman ini.', 'danger')
                 return redirect(url_for('main.index'))
             return f(*args, **kwargs)
         return decorated

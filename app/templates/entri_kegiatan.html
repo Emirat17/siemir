@@ -3,9 +3,9 @@
 {% block page_title %}Entri Kegiatan{% endblock %}
 
 {% block content %}
-{% set nama_bulan_full = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] %}
+{% set nm = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] %}
 
-<!-- Filter -->
+<!-- Filter & Tombol -->
 <div class="card mb-3">
   <div class="card-body">
     <form method="POST" class="row g-3 align-items-end">
@@ -14,7 +14,7 @@
         <label class="form-label">Bulan</label>
         <select name="bulan" class="form-select">
           {% for i in range(1,13) %}
-          <option value="{{ i }}" {{ 'selected' if i==bulan }}>{{ nama_bulan_full[i] }}</option>
+          <option value="{{ i }}" {{ 'selected' if i==bulan }}>{{ nm[i] }}</option>
           {% endfor %}
         </select>
       </div>
@@ -27,16 +27,25 @@
           <i class="bi bi-search me-1"></i>Tampilkan
         </button>
       </div>
-      <div class="col-auto ms-auto align-self-end">
+      <div class="col-auto ms-auto align-self-end d-flex gap-2 align-items-center">
         <span class="badge" style="background:#1341A0;font-size:13px;padding:8px 14px;">
-          {{ nama_bulan_full[bulan] }} {{ tahun }} &nbsp;·&nbsp; {{ daftar|length }} kegiatan terdaftar
+          {{ nm[bulan] }} {{ tahun }} &nbsp;·&nbsp; {{ daftar|length }} kegiatan terdaftar
         </span>
+        <a href="{{ url_for('main.download_template', jenis='kegiatan') }}"
+           class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-file-earmark-excel me-1"></i>Unduh Template
+        </a>
+        <button type="button" class="btn btn-outline-success btn-sm"
+                data-bs-toggle="modal" data-bs-target="#modalUploadKeg">
+          <i class="bi bi-upload me-1"></i>Import Excel
+        </button>
       </div>
     </form>
   </div>
 </div>
 
 <div class="row g-3">
+
   <!-- Form Tambah Kegiatan -->
   <div class="col-md-5">
     <div class="card">
@@ -46,8 +55,8 @@
       <div class="card-body">
         <form method="POST" id="form-tambah">
           <input type="hidden" name="action" value="tambah">
-          <input type="hidden" name="bulan" value="{{ bulan }}">
-          <input type="hidden" name="tahun" value="{{ tahun }}">
+          <input type="hidden" name="bulan"  value="{{ bulan }}">
+          <input type="hidden" name="tahun"  value="{{ tahun }}">
 
           <div class="mb-3">
             <label class="form-label">Fungsi <span class="text-danger">*</span></label>
@@ -66,13 +75,14 @@
 
           <div class="alert alert-info py-2 mb-3" style="font-size:12px;">
             <i class="bi bi-info-circle me-1"></i>
-            Daftarkan semua kegiatan untuk <strong>{{ nama_bulan_full[bulan] }} {{ tahun }}</strong>.
-            Klik "+" untuk menambah kegiatan berikutnya.
+            Daftarkan semua kegiatan untuk <strong>{{ nm[bulan] }} {{ tahun }}</strong>.
+            Klik &ldquo;+&rdquo; untuk menambah kegiatan berikutnya.
           </div>
 
           <div id="baris-wrap"></div>
 
-          <button type="button" class="btn btn-outline-success btn-sm w-100 mb-3" id="btn-tambah-baris">
+          <button type="button" class="btn btn-outline-success btn-sm w-100 mb-3"
+                  id="btn-tambah-baris">
             <i class="bi bi-plus-lg me-1"></i>Tambah Baris Kegiatan
           </button>
 
@@ -89,14 +99,33 @@
     <div class="card">
       <div class="card-header">
         <h6><i class="bi bi-list-check me-2 text-primary"></i>
-          Kegiatan Terdaftar — {{ nama_bulan_full[bulan] }} {{ tahun }}
+          Kegiatan Terdaftar &mdash; {{ nm[bulan] }} {{ tahun }}
         </h6>
       </div>
       <div class="card-body p-0">
         {% if daftar %}
         <div class="table-responsive">
-          <table class="table table-hover mb-0" style="font-size:12px;">
-            <thead>
+          <!-- Header tabel + kontrol paginasi -->
+          <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom"
+               style="background:#F7F9FD;">
+            <small class="text-muted fw-medium">
+              <span id="info-paginasi"></span>
+            </small>
+            <div class="d-flex align-items-center gap-2">
+              <small class="text-muted">Baris/halaman:</small>
+              <select id="sel-baris-per-hal" class="form-select form-select-sm"
+                      style="width:70px;" onchange="initPaginasi()">
+                <option value="5" selected>5</option>
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="999">Semua</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+          <table id="tbl-kegiatan" class="table table-hover mb-0" style="font-size:12px;">
+            <thead style="background:#F0F4FF;">
               <tr>
                 <th class="px-3">Nama Kegiatan</th>
                 <th>Tgl Mulai</th>
@@ -105,59 +134,102 @@
                 <th>Vol</th>
                 <th>Honor/Sat</th>
                 <th>Mata Akun</th>
-                <th style="width:50px;"></th>
+                <th class="text-center">Bln Cair</th>
+                <th style="width:80px;"></th>
               </tr>
             </thead>
-            <tbody>
+            <tbody id="tbody-kegiatan">
               {% set ns = namespace(cur_fungsi='') %}
               {% for k in daftar %}
               {% if k.fungsi != ns.cur_fungsi %}
                 {% set ns.cur_fungsi = k.fungsi %}
-                <tr style="background:#EEF2FF;">
-                  <td colspan="8" class="px-3 fw-bold" style="color:#1341A0;font-size:12px;">
+                <tr class="baris-grup" style="background:#EEF2FF;">
+                  <td colspan="9" class="px-3 fw-bold"
+                      style="color:#1341A0;font-size:12px;">
                     <i class="bi bi-tag-fill me-1"></i>{{ k.fungsi }}
                   </td>
                 </tr>
               {% endif %}
-              <tr>
+              <tr class="baris-data">
                 <td class="px-3 fw-medium">{{ k.nama_kegiatan }}</td>
-                <td style="white-space:nowrap;">{{ k.tgl_mulai.strftime('%d/%m/%Y') }}</td>
-                <td style="white-space:nowrap;">{{ k.tgl_selesai.strftime('%d/%m/%Y') }}</td>
+                <td style="white-space:nowrap;">
+                  {{ k.tgl_mulai.strftime('%d/%m/%Y') }}
+                </td>
+                <td style="white-space:nowrap;">
+                  {{ k.tgl_selesai.strftime('%d/%m/%Y') }}
+                </td>
                 <td>{{ k.satuan }}</td>
                 <td class="text-center">{{ k.volume_default }}</td>
                 <td>Rp {{ '{:,.0f}'.format(k.honor_satuan) }}</td>
-                <td class="text-muted">{{ k.mata_akun }}</td>
+                <td class="text-muted" style="font-size:11px;">{{ k.mata_akun }}</td>
+                <td class="text-center">
+                  {% if k.bulan_pencairan %}
+                  <span class="badge"
+                        style="background:#EEF2FF;color:#1341A0;font-size:10px;">
+                    {{ ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul',
+                        'Agt','Sep','Okt','Nov','Des'][k.bulan_pencairan] }}
+                  </span>
+                  {% else %}
+                  <span class="text-muted" style="font-size:11px;">—</span>
+                  {% endif %}
+                </td>
                 <td>
-                  <form method="POST" class="d-inline"
-                        onsubmit="return confirm('Hapus kegiatan ini dari daftar?')">
-                    <input type="hidden" name="action" value="hapus">
-                    <input type="hidden" name="keg_id" value="{{ k.id }}">
-                    <button class="btn btn-outline-danger btn-sm">
-                      <i class="bi bi-trash"></i>
+                  <div class="d-flex gap-1">
+                    <button type="button"
+                            class="btn btn-outline-warning btn-sm"
+                            title="Edit kegiatan"
+                            data-id="{{ k.id }}"
+                            data-nama="{{ k.nama_kegiatan }}"
+                            data-tgl-mulai="{{ k.tgl_mulai.strftime('%Y-%m-%d') }}"
+                            data-tgl-selesai="{{ k.tgl_selesai.strftime('%Y-%m-%d') }}"
+                            data-satuan="{{ k.satuan }}"
+                            data-vol="{{ k.volume_default }}"
+                            data-honor="{{ k.honor_satuan }}"
+                            data-akun="{{ k.mata_akun }}"
+                            data-bln-cair="{{ k.bulan_pencairan or '' }}"
+                            onclick="bukaModalEdit(this)">
+                      <i class="bi bi-pencil"></i>
                     </button>
-                  </form>
+                    <form method="POST" class="d-inline"
+                          onsubmit="return confirm('Hapus kegiatan ini?')">
+                      <input type="hidden" name="action" value="hapus">
+                      <input type="hidden" name="keg_id" value="{{ k.id }}">
+                      <button class="btn btn-outline-danger btn-sm">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </form>
+                  </div>
                 </td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
+          </div>
+
+          <!-- Kontrol halaman -->
+          <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top"
+               style="background:#F7F9FD;">
+            <div id="paginasi-info" class="text-muted" style="font-size:12px;"></div>
+            <div id="paginasi-tombol" class="d-flex gap-1"></div>
+          </div>
         </div>
         {% else %}
         <div class="text-center text-muted py-5">
           <i class="bi bi-clipboard-plus fs-2 d-block mb-2 opacity-25"></i>
-          Belum ada kegiatan terdaftar untuk {{ nama_bulan_full[bulan] }} {{ tahun }}.
+          Belum ada kegiatan terdaftar untuk {{ nm[bulan] }} {{ tahun }}.
           <br><small>Daftarkan kegiatan menggunakan form di sebelah kiri.</small>
         </div>
         {% endif %}
       </div>
     </div>
   </div>
+
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-const SATUAN_OPT = ['OH','Hari','Kali','Dokumen','Responden','Blok Sensus','SLS','EA','RUTA'];
+const SATUAN_OPT = ['OH','Hari','Kali','Dokumen','Responden','Blok Sensus','SLS','EA','RUTA','Segmen'];
 let barCtr = 0;
 
 function buatBaris() {
@@ -174,13 +246,11 @@ function buatBaris() {
         <i class="bi bi-x-circle-fill"></i>
       </button>
     </div>
-    <!-- Nama kegiatan -->
     <div class="mb-2">
       <label style="font-size:11px;color:#6B7A99;">Nama Kegiatan *</label>
       <input type="text" name="nama_kegiatan" class="form-control form-control-sm"
              placeholder="Nama kegiatan" required>
     </div>
-    <!-- Tanggal -->
     <div class="row g-1 mb-2">
       <div class="col-6">
         <label style="font-size:11px;color:#6B7A99;">Tanggal Mulai *</label>
@@ -191,7 +261,18 @@ function buatBaris() {
         <input type="date" name="tgl_selesai" class="form-control form-control-sm" required>
       </div>
     </div>
-    <!-- Satuan, Vol, Honor, Akun -->
+    <div class="mb-2">
+      <label style="font-size:11px;color:#6B7A99;">Bulan Pencairan Honor (BAST) *</label>
+      <select name="bulan_pencairan" class="form-select form-select-sm" required>
+        <option value="">— Pilih Bulan Pencairan —</option>
+        ${['Januari','Februari','Maret','April','Mei','Juni',
+           'Juli','Agustus','September','Oktober','November','Desember']
+          .map((b,i) => `<option value="${i+1}">${b}</option>`).join('')}
+      </select>
+      <div style="font-size:10px;color:#6B7A99;margin-top:2px;">
+        Bulan pencairan = bulan kapan honor kegiatan ini akan dibayarkan (bulan BAST)
+      </div>
+    </div>
     <div class="row g-1">
       <div class="col-3">
         <label style="font-size:11px;color:#6B7A99;">Satuan *</label>
@@ -218,8 +299,278 @@ function buatBaris() {
   wrap.appendChild(div);
 }
 
-// Baris pertama otomatis
 buatBaris();
 document.getElementById('btn-tambah-baris').addEventListener('click', buatBaris);
+
+// ── Paginasi Tabel Kegiatan ──────────────────────────────────────
+let halamanAktif = 1;
+
+function initPaginasi() {
+  halamanAktif = 1;
+  renderPaginasi();
+}
+
+function renderPaginasi() {
+  const perHal  = parseInt(document.getElementById('sel-baris-per-hal')?.value || 5);
+  const tbody   = document.getElementById('tbody-kegiatan');
+  if (!tbody) return;
+
+  // Ambil hanya baris data (bukan baris grup fungsi)
+  const semuaBaris   = Array.from(tbody.querySelectorAll('tr.baris-data'));
+  const semuaGrup    = Array.from(tbody.querySelectorAll('tr.baris-grup'));
+  const total        = semuaBaris.length;
+  const totalHal     = perHal >= 999 ? 1 : Math.ceil(total / perHal);
+
+  halamanAktif = Math.min(halamanAktif, totalHal);
+  const mulai  = (halamanAktif - 1) * perHal;
+  const akhir  = perHal >= 999 ? total : Math.min(mulai + perHal, total);
+
+  // Sembunyikan semua baris data
+  semuaBaris.forEach((tr, idx) => {
+    tr.style.display = (idx >= mulai && idx < akhir) ? '' : 'none';
+  });
+
+  // Tampilkan/sembunyikan grup fungsi berdasarkan baris yang terlihat
+  semuaGrup.forEach(gr => {
+    // Cari baris data di bawah grup ini (sampai grup berikutnya)
+    let adaYangTampil = false;
+    let sibling = gr.nextElementSibling;
+    while (sibling && !sibling.classList.contains('baris-grup')) {
+      if (sibling.classList.contains('baris-data') && sibling.style.display !== 'none') {
+        adaYangTampil = true;
+        break;
+      }
+      sibling = sibling.nextElementSibling;
+    }
+    gr.style.display = adaYangTampil ? '' : 'none';
+  });
+
+  // Update info
+  const infoEl = document.getElementById('paginasi-info');
+  if (infoEl) {
+    if (total === 0) {
+      infoEl.textContent = '';
+    } else if (perHal >= 999) {
+      infoEl.textContent = `Menampilkan semua ${total} kegiatan`;
+    } else {
+      infoEl.textContent = `Baris ${mulai+1}–${akhir} dari ${total} kegiatan`;
+    }
+  }
+
+  // Render tombol halaman
+  const tombolEl = document.getElementById('paginasi-tombol');
+  if (!tombolEl) return;
+  tombolEl.innerHTML = '';
+
+  if (totalHal <= 1) return;
+
+  // Tombol Prev
+  const prev = document.createElement('button');
+  prev.type      = 'button';
+  prev.className = 'btn btn-outline-secondary btn-sm py-0 px-2';
+  prev.innerHTML = '<i class="bi bi-chevron-left"></i>';
+  prev.disabled  = halamanAktif === 1;
+  prev.onclick   = () => { halamanAktif--; renderPaginasi(); };
+  tombolEl.appendChild(prev);
+
+  // Tombol nomor halaman — tampilkan maks 7 halaman
+  const range = [];
+  for (let p = 1; p <= totalHal; p++) {
+    if (p === 1 || p === totalHal ||
+        (p >= halamanAktif - 2 && p <= halamanAktif + 2)) {
+      range.push(p);
+    } else if (range[range.length-1] !== '...') {
+      range.push('...');
+    }
+  }
+
+  range.forEach(p => {
+    if (p === '...') {
+      const sp = document.createElement('span');
+      sp.className   = 'btn btn-sm disabled px-1';
+      sp.textContent = '…';
+      tombolEl.appendChild(sp);
+      return;
+    }
+    const btn = document.createElement('button');
+    btn.type      = 'button';
+    btn.className = `btn btn-sm ${p === halamanAktif
+      ? 'btn-bps' : 'btn-outline-secondary'}`;
+    btn.style.cssText = 'min-width:32px;padding:0 6px;';
+    btn.textContent   = p;
+    btn.onclick       = () => { halamanAktif = p; renderPaginasi(); };
+    tombolEl.appendChild(btn);
+  });
+
+  // Tombol Next
+  const nxt = document.createElement('button');
+  nxt.type      = 'button';
+  nxt.className = 'btn btn-outline-secondary btn-sm py-0 px-2';
+  nxt.innerHTML = '<i class="bi bi-chevron-right"></i>';
+  nxt.disabled  = halamanAktif === totalHal;
+  nxt.onclick   = () => { halamanAktif++; renderPaginasi(); };
+  tombolEl.appendChild(nxt);
+}
+
+// Jalankan paginasi saat halaman selesai dimuat
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.getElementById('tbl-kegiatan')) initPaginasi();
+});
+
+// ── Modal Edit Kegiatan ───────────────────────────────────────────
+function bukaModalEdit(btn) {
+  document.getElementById('edit-keg-id').value         = btn.dataset.id;
+  document.getElementById('edit-nama').value           = btn.dataset.nama;
+  document.getElementById('edit-tgl-mulai').value      = btn.dataset.tglMulai;
+  document.getElementById('edit-tgl-selesai').value    = btn.dataset.tglSelesai;
+  document.getElementById('edit-vol').value            = btn.dataset.vol;
+  document.getElementById('edit-honor').value          = btn.dataset.honor;
+  document.getElementById('edit-akun').value           = btn.dataset.akun;
+  // Bulan pencairan
+  const selCair = document.getElementById('edit-bln-cair');
+  if (selCair) selCair.value = btn.dataset.blnCair || '';
+
+  // Set dropdown satuan
+  const selSatuan = document.getElementById('edit-satuan');
+  for (let opt of selSatuan.options) {
+    opt.selected = opt.value === btn.dataset.satuan;
+  }
+
+  const modal = new bootstrap.Modal(document.getElementById('modalEditKeg'));
+  modal.show();
+}
 </script>
+
+<!-- Modal Edit Kegiatan -->
+<div class="modal fade" id="modalEditKeg" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#0A2560;">
+        <h5 class="modal-title text-white">
+          <i class="bi bi-pencil-square me-2"></i>Edit Kegiatan
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST">
+        <input type="hidden" name="action"  value="edit">
+        <input type="hidden" name="bulan"   value="{{ bulan }}">
+        <input type="hidden" name="tahun"   value="{{ tahun }}">
+        <input type="hidden" name="keg_id"  id="edit-keg-id">
+        <div class="modal-body">
+
+          <div class="mb-3">
+            <label class="form-label fw-medium">Nama Kegiatan <span class="text-danger">*</span></label>
+            <input type="text" name="nama_kegiatan" id="edit-nama"
+                   class="form-control" required>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-medium">Tanggal Mulai <span class="text-danger">*</span></label>
+              <input type="date" name="tgl_mulai" id="edit-tgl-mulai"
+                     class="form-control" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-medium">Tanggal Selesai <span class="text-danger">*</span></label>
+              <input type="date" name="tgl_selesai" id="edit-tgl-selesai"
+                     class="form-control" required>
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-3">
+              <label class="form-label fw-medium">Satuan <span class="text-danger">*</span></label>
+              <select name="satuan" id="edit-satuan" class="form-select" required>
+                {% for s in ['OH','Hari','Kali','Dokumen','Responden','Blok Sensus','SLS','EA','RUTA','Segmen'] %}
+                <option value="{{ s }}">{{ s }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-medium">Volume Default</label>
+              <input type="number" name="volume_default" id="edit-vol"
+                     class="form-control" min="1" value="1">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-medium">Honor/Satuan (Rp) <span class="text-danger">*</span></label>
+              <input type="number" name="honor_satuan" id="edit-honor"
+                     class="form-control" min="0" step="1000" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-medium">Bulan Pencairan</label>
+              <select name="bulan_pencairan" id="edit-bln-cair" class="form-select">
+                <option value="">— Pilih —</option>
+                {% for nama_bln in ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] %}
+                <option value="{{ loop.index }}">{{ nama_bln }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-medium">Mata Akun <span class="text-danger">*</span></label>
+              <input type="text" name="mata_akun" id="edit-akun"
+                     class="form-control" required>
+            </div>
+          </div>
+
+          <div class="alert alert-info py-2 mb-0" style="font-size:12px;">
+            <i class="bi bi-info-circle me-1"></i>
+            Perubahan honor/satuan di sini <strong>tidak otomatis mengubah</strong>
+            data kontrak yang sudah dibuat. Edit kegiatan di kontrak secara terpisah jika diperlukan.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary"
+                  data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-bps">
+            <i class="bi bi-check-lg me-1"></i>Simpan Perubahan
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalUploadKeg" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#0A2560;">
+        <h5 class="modal-title text-white">
+          <i class="bi bi-upload me-2"></i>Import Kegiatan dari Excel
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{{ url_for('main.upload_kegiatan') }}"
+            enctype="multipart/form-data">
+        <div class="modal-body">
+          <div class="alert alert-info py-2" style="font-size:12px;">
+            <i class="bi bi-info-circle me-1"></i>
+            Gunakan template resmi agar format sesuai.
+            <a href="{{ url_for('main.download_template', jenis='kegiatan') }}"
+               class="alert-link">Unduh template Excel</a>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-medium" style="font-size:13px;">
+              Pilih File Excel (.xlsx) <span class="text-danger">*</span>
+            </label>
+            <input type="file" name="file_excel" class="form-control"
+                   accept=".xlsx" required>
+            <div class="form-text">Format: .xlsx sesuai template. Maks. 10 MB.</div>
+          </div>
+          <div class="alert alert-warning py-2 mb-0" style="font-size:12px;">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            <strong>Hapus baris contoh (berwarna kuning)</strong> dari template sebelum upload.
+            Data duplikat akan dilewati otomatis.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm"
+                  data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-bps btn-sm">
+            <i class="bi bi-upload me-1"></i>Upload & Import
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 {% endblock %}

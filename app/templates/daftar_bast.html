@@ -8,8 +8,8 @@
 <!-- Filter -->
 <div class="card mb-3">
   <div class="card-body">
-    <form method="GET" class="row g-3 align-items-end">
-      <div class="col-md-3">
+    <form method="GET" class="row g-2 align-items-end">
+      <div class="col-md-2">
         <label class="form-label">Bulan BAST</label>
         <select name="bulan" class="form-select">
           <option value="">— Semua Bulan —</option>
@@ -18,19 +18,35 @@
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-2">
+      <div class="col-md-1" style="min-width:90px;">
         <label class="form-label">Tahun</label>
         <input type="number" name="tahun" class="form-control" value="{{ tahun or 2026 }}">
       </div>
+      <div class="col-md-2">
+        <label class="form-label">Fungsi</label>
+        <select name="fungsi" class="form-select">
+          <option value="">— Semua —</option>
+          {% for f in (fungsi_list or []) %}
+          <option value="{{ f }}" {{ 'selected' if fungsi==f }}>{{ f }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
       <div class="col-auto">
         <button type="submit" class="btn btn-bps">
           <i class="bi bi-search me-1"></i>Filter
         </button>
       </div>
       <div class="col-auto ms-auto align-self-end">
-        <a href="{{ url_for('main.entri_bast') }}" class="btn btn-outline-success btn-sm">
-          <i class="bi bi-plus-lg me-1"></i>Entri BAST Baru
-        </a>
+        <div class="d-flex gap-2">
+          <a href="{{ url_for('main.generate_bast_massal', bulan=bulan, tahun=tahun) }}"
+             class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-lightning-fill me-1"></i>Generate Massal
+          </a>
+          <a href="{{ url_for('main.entri_bast') }}" class="btn btn-outline-success btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>Entri Per Petugas
+          </a>
+        </div>
       </div>
     </form>
   </div>
@@ -41,21 +57,43 @@
     <h6 class="mb-0 fw-semibold">
       <i class="bi bi-file-earmark-check-fill me-2 text-primary"></i>
       Daftar BAST {% if bulan and tahun %}— {{ nm[bulan] }} {{ tahun }}{% endif %}
-      <span class="badge bg-primary bg-opacity-10 text-primary ms-2">{{ bast_list|length }}</span>
+      <span class="badge bg-primary bg-opacity-10 text-primary ms-2" data-count-badge="tbl-bast">{{ bast_list|length }}</span>
     </h6>
   </div>
+  {% if bast_list %}
+  {% set n_sbml = bast_list | selectattr('total_honor', 'gt', 3600000) | list | length %}
+  {% set n_ttd  = bast_list | selectattr('link_bast_ttd') | list | length %}
+  <div class="px-3 pt-2 d-flex gap-2 flex-wrap">
+    {% if n_sbml > 0 %}
+    <div class="alert alert-danger py-1 mb-2 flex-fill" style="font-size:12px;">
+      <i class="bi bi-exclamation-triangle-fill me-1"></i>
+      <strong>{{ n_sbml }} mitra</strong> melebihi SBML Rp 3.600.000.
+      Buka Detail BAST untuk menghapus kegiatan yang tidak perlu.
+    </div>
+    {% endif %}
+    {% if n_ttd < bast_list|length %}
+    <div class="alert alert-warning py-1 mb-2 flex-fill" style="font-size:12px;">
+      <i class="bi bi-patch-check me-1"></i>
+      <strong>{{ bast_list|length - n_ttd }}</strong> BAST belum ada dokumen bertanda tangan.
+      Klik ikon <i class="bi bi-patch-check"></i> untuk input link.
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
   <div class="card-body p-0">
     <div class="table-responsive">
-      <table class="table table-hover mb-0" style="font-size:13px;">
+      <table id="tbl-bast" class="table table-hover mb-0" style="font-size:13px;">
         <thead>
           <tr>
-            <th class="px-3">Nama Petugas</th>
-            <th>Nomor BAST</th>
-            <th>Bulan Pencairan</th>
-            <th>Nomor SPK Terkait</th>
-            <th>Jml Kegiatan</th>
-            <th>Total Honor</th>
-            <th>Tanggal BAST</th>
+            <th class="px-3" data-sort="text">Nama Petugas</th>
+            <th data-sort="text">Nomor BAST</th>
+            <th data-sort="text">Bulan Pencairan</th>
+            <th data-sort="text">Nomor SPK Terkait</th>
+            <th data-sort="number">Jml Kegiatan</th>
+            <th data-sort="number">Total Honor</th>
+            <th data-sort="date">Tanggal BAST</th>
+            <th class="text-center" style="width:65px;">SBML</th>
+            <th class="text-center" style="width:55px;">TTD</th>
             <th style="width:120px;"></th>
           </tr>
         </thead>
@@ -63,19 +101,56 @@
           {% for b in bast_list %}
           <tr>
             <td class="px-3 fw-medium">{{ b.kontrak.petugas.nama }}</td>
-            <td style="font-size:12px;">{{ b.nomor_bast or '—' }}</td>
-            <td>
+            <td style="font-size:12px;font-family:monospace;">
+            {{ b.nomor_bast or '—' }}
+          </td>
+            <td data-val="{{ b.tahun_bast * 12 + b.bulan_bast }}">
               <span class="badge" style="background:#EEF2FF;color:#1341A0;font-size:11px;padding:4px 10px;">
                 {{ nm[b.bulan_bast] }} {{ b.tahun_bast }}
               </span>
             </td>
             <td style="font-size:12px;" class="text-muted">{{ b.kontrak.nomor_spk }}</td>
-            <td class="text-center">{{ b.kegiatan_list|length }}</td>
-            <td class="fw-medium text-primary">Rp {{ '{:,.0f}'.format(b.total_honor) }}</td>
+            <td class="text-center" data-val="{{ b.kegiatan_list|length }}">{{ b.kegiatan_list|length }}</td>
+            <td class="fw-medium text-primary" data-val="{{ b.total_honor|float }}">
+              Rp {{ '{:,.0f}'.format(b.total_honor) }}
+            </td>
             <td style="font-size:12px;">
               {% if b.tanggal_bast %}
                 {{ b.tanggal_bast.strftime('%d %b %Y') }}
               {% else %}—{% endif %}
+            </td>
+            <!-- Kolom SBML -->
+            <td class="text-center">
+              {% if b.total_honor > 3600000 %}
+              <span class="badge bg-danger bg-opacity-15 text-danger"
+                    style="font-size:10px;white-space:nowrap;"
+                    title="Melebihi SBML Rp 3.600.000">
+                <i class="bi bi-exclamation-triangle-fill"></i> Lebih
+              </span>
+              {% else %}
+              <span class="badge bg-success bg-opacity-15 text-success"
+                    style="font-size:10px;"
+                    title="Dalam batas SBML">
+                <i class="bi bi-check-circle-fill"></i> Aman
+              </span>
+              {% endif %}
+            </td>
+            <!-- Kolom TTD -->
+            <td class="text-center">
+              {% if b.link_bast_ttd %}
+              <a href="{{ b.link_bast_ttd }}" target="_blank"
+                 title="Lihat dokumen BAST bertanda tangan"
+                 style="color:#065F46;font-size:20px;line-height:1;">
+                <i class="bi bi-patch-check-fill"></i>
+              </a>
+              {% else %}
+              <button type="button"
+                      onclick="bukaModalLinkBAST({{ b.id }}, '{{ b.nomor_bast or '-' }}')"
+                      title="Belum ada dokumen TTD — klik untuk input link"
+                      style="border:none;background:none;color:#CBD5E1;font-size:20px;line-height:1;cursor:pointer;">
+                <i class="bi bi-patch-check"></i>
+              </button>
+              {% endif %}
             </td>
             <td>
               <a href="{{ url_for('main.detail_bast', id=b.id) }}"
@@ -97,7 +172,7 @@
           </tr>
           {% else %}
           <tr>
-            <td colspan="8" class="text-center text-muted py-5">
+            <td colspan="10" class="text-center text-muted py-5">
               <i class="bi bi-file-earmark-x fs-2 d-block mb-2 opacity-25"></i>
               Belum ada BAST yang dibuat.
               <a href="{{ url_for('main.entri_bast') }}" class="d-block mt-1">
@@ -110,7 +185,7 @@
         {% if bast_list %}
         <tfoot style="background:#F7F9FD;">
           <tr>
-            <td colspan="5" class="text-end fw-bold px-3">Total</td>
+            <td colspan="7" class="text-end fw-bold px-3">Total</td>
             <td class="fw-bold text-primary">
               Rp {{ '{:,.0f}'.format(bast_list|sum(attribute='total_honor')) }}
             </td>
@@ -122,4 +197,52 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='sortable.js') }}"></script>
+<script>initSortableTable('tbl-bast'); initSearchRow('tbl-bast');</script>
+
+<!-- Modal Input Link BAST TTD -->
+<div class="modal fade" id="modalLinkBAST" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#0A2560;">
+        <h6 class="modal-title text-white">
+          <i class="bi bi-patch-check-fill me-2"></i>
+          Input Link Dokumen BAST Bertanda Tangan
+        </h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="form-link-bast" method="POST">
+        <div class="modal-body">
+          <div class="mb-1" style="font-size:12px;color:#6B7A99;">Nomor BAST:</div>
+          <div class="fw-semibold mb-3" id="lbl-nomor-bast" style="font-family:monospace;"></div>
+          <label class="form-label fw-medium">
+            Link Dokumen (Google Drive, OneDrive, dsb.)
+          </label>
+          <input type="url" name="link_bast_ttd" id="inp-link-bast"
+                 class="form-control" placeholder="https://drive.google.com/...">
+          <div class="form-text">Kosongkan untuk menghapus link yang ada.</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm"
+                  data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-bps btn-sm">
+            <i class="bi bi-save me-1"></i>Simpan Link
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function bukaModalLinkBAST(id, nomor) {
+  document.getElementById('lbl-nomor-bast').textContent = nomor;
+  document.getElementById('form-link-bast').action = '/bast/' + id + '/link-ttd';
+  document.getElementById('inp-link-bast').value = '';
+  new bootstrap.Modal(document.getElementById('modalLinkBAST')).show();
+}
+</script>
 {% endblock %}

@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+{% block title %}Hasil Generate BAST{% endblock %}
+{% block page_title %}Hasil Generate & Merge BAST{% endblock %}
+
+{% block content %}
+{% set nm = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] %}
+{% set SBML_VAL = 3600000 %}
+
+<!-- Ringkasan -->
+<div class="row g-3 mb-3">
+  <div class="col-md-3">
+    <div class="card h-100 border-0 shadow-sm">
+      <div class="card-body">
+        <div class="text-muted mb-1" style="font-size:12px;">Periode BAST</div>
+        <div class="fw-bold" style="font-size:16px;">{{ nm[bulan] }} {{ tahun }}</div>
+        {% if fungsi %}<div class="badge" style="background:#EEF2FF;color:#1341A0;font-size:11px;">{{ fungsi }}</div>{% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card h-100 border-0 shadow-sm">
+      <div class="card-body">
+        <div class="text-muted mb-1" style="font-size:12px;">Total Mitra</div>
+        <div class="fw-bold text-primary" style="font-size:24px;">{{ bast_list|length }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card h-100 border-0 shadow-sm">
+      <div class="card-body">
+        <div class="text-muted mb-1" style="font-size:12px;">Total Honor Dicairkan</div>
+        <div class="fw-bold text-success" style="font-size:16px;">Rp {{ '{:,.0f}'.format(total_all) }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card h-100 border-0 shadow-sm {% if n_sbml > 0 %}border-danger{% endif %}">
+      <div class="card-body">
+        <div class="text-muted mb-1" style="font-size:12px;">Melebihi SBML</div>
+        <div class="fw-bold {% if n_sbml > 0 %}text-danger{% else %}text-success{% endif %}" style="font-size:24px;">
+          {{ n_sbml }}
+        </div>
+        <div style="font-size:11px;color:#6B7A99;">dari {{ bast_list|length }} mitra</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Warning SBML global -->
+{% if n_sbml > 0 %}
+<div class="alert alert-danger py-2 mb-3" style="font-size:13px;">
+  <i class="bi bi-exclamation-triangle-fill me-2"></i>
+  <strong>{{ n_sbml }} mitra</strong> memiliki total honor melebihi batas SBML
+  <strong>Rp 3.600.000</strong>. Tinjau dan perbaiki BAST petugas tersebut
+  sebelum dokumen dicetak.
+</div>
+{% else %}
+<div class="alert alert-success py-2 mb-3" style="font-size:13px;">
+  <i class="bi bi-check-circle-fill me-2"></i>
+  Semua mitra dalam batas SBML. Dokumen siap untuk di-merge dan dicetak.
+</div>
+{% endif %}
+
+<!-- Tombol aksi -->
+<div class="d-flex gap-2 mb-3">
+  <a href="{{ url_for('main.merge_bast', bulan=bulan, tahun=tahun, fungsi=fungsi) }}"
+     class="btn btn-bps">
+    <i class="bi bi-file-earmark-zip me-1"></i>
+    Unduh Merge BAST {{ nm[bulan] }} {{ tahun }}{% if fungsi %} — {{ fungsi }}{% endif %}
+  </a>
+  <a href="{{ url_for('main.generate_bast_bulanan', bulan=bulan, tahun=tahun, fungsi=fungsi) }}"
+     class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Kembali
+  </a>
+</div>
+
+<!-- Tabel Daftar BAST -->
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h6 class="mb-0 fw-semibold">
+      <i class="bi bi-file-earmark-check-fill me-2 text-primary"></i>
+      Daftar BAST — {{ nm[bulan] }} {{ tahun }}{% if fungsi %} · {{ fungsi }}{% endif %}
+    </h6>
+    <small class="text-muted">{{ bast_list|length }} dokumen BAST</small>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0" style="font-size:13px;">
+        <thead>
+          <tr>
+            <th class="px-3">No</th>
+            <th>Nomor BAST</th>
+            <th>Nama Mitra</th>
+            <th>Kegiatan</th>
+            <th>Jml Kegiatan</th>
+            <th>Total Honor</th>
+            <th>Status SBML</th>
+            <th>Unduh</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in bast_list %}
+          {% set over_sbml = b.total_honor > SBML_VAL %}
+          <tr class="{{ 'table-danger bg-opacity-25' if over_sbml else '' }}">
+            <td class="px-3 text-muted">{{ loop.index }}</td>
+            <td style="font-size:12px;white-space:nowrap;">{{ b.nomor_bast or '—' }}</td>
+            <td class="fw-medium">{{ b.kontrak.petugas.nama }}</td>
+            <td style="font-size:12px;max-width:220px;">
+              {% for bk in b.kegiatan_list %}
+              <span class="badge me-1 mb-1"
+                    style="background:#EEF2FF;color:#1341A0;font-size:10px;font-weight:normal;">
+                {{ bk.kegiatan.nama_kegiatan[:30] }}{% if bk.kegiatan.nama_kegiatan|length > 30 %}…{% endif %}
+              </span>
+              {% endfor %}
+            </td>
+            <td class="text-center">{{ b.kegiatan_list|length }}</td>
+            <td class="fw-bold {{ 'text-danger' if over_sbml else 'text-primary' }}">
+              Rp {{ '{:,.0f}'.format(b.total_honor) }}
+            </td>
+            <td>
+              {% if over_sbml %}
+              <span class="badge bg-danger" style="font-size:11px;">
+                <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                Melebihi SBML<br>
+                <small>+Rp {{ '{:,.0f}'.format(b.total_honor - SBML_VAL) }}</small>
+              </span>
+              {% else %}
+              <span class="badge bg-success bg-opacity-15 text-success" style="font-size:11px;">
+                <i class="bi bi-check-circle-fill me-1"></i>Aman
+              </span>
+              {% endif %}
+            </td>
+            <td>
+              <a href="{{ url_for('main.generate_bast_doc', id=b.id) }}"
+                 class="btn btn-bps btn-sm" title="Unduh BAST individual">
+                <i class="bi bi-file-earmark-word"></i>
+              </a>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="8" class="text-center text-muted py-4">
+              Tidak ada BAST untuk periode ini.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        {% if bast_list %}
+        <tfoot style="background:#F7F9FD;">
+          <tr>
+            <td colspan="5" class="text-end fw-bold px-3">Total Honor Dicairkan</td>
+            <td class="fw-bold text-primary">Rp {{ '{:,.0f}'.format(total_all) }}</td>
+            <td>
+              {% if n_sbml > 0 %}
+              <span class="badge bg-danger" style="font-size:10px;">
+                {{ n_sbml }} melebihi SBML
+              </span>
+              {% endif %}
+            </td>
+            <td></td>
+          </tr>
+        </tfoot>
+        {% endif %}
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

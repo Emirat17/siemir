@@ -3,70 +3,186 @@
 {% block page_title %}Dashboard{% endblock %}
 
 {% block content %}
-<!-- Stat Cards -->
+{% set nm = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'] %}
+{% set nm_full = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] %}
+
+<!-- Stat Cards Ringkasan -->
 <div class="row g-3 mb-4">
   <div class="col-md-4">
     <div class="stat-card blue">
-      <div class="stat-lbl">Total Petugas Terdaftar</div>
-      <div class="stat-val">{{ total_petugas }}</div>
-      <i class="bi bi-people-fill stat-icon"></i>
-    </div>
-  </div>
-  <div class="col-md-4">
-    <div class="stat-card green">
-      <div class="stat-lbl">Total Kontrak</div>
-      <div class="stat-val">{{ total_kontrak }}</div>
+      <div class="stat-lbl">Total Kontrak SPK (Semua Bulan)</div>
+      <div class="stat-val">{{ total_kontrak_all }}</div>
       <i class="bi bi-file-earmark-text-fill stat-icon"></i>
     </div>
   </div>
   <div class="col-md-4">
-    <div class="stat-card amber">
-      <div class="stat-lbl">Kontrak Bulan Ini</div>
-      <div class="stat-val">{{ kontrak_bulan }}</div>
+    <div class="stat-card green">
+      <div class="stat-lbl">Kontrak SPK Bulan {{ nm_full[bulan_ini] }} {{ tahun_ini }}</div>
+      <div class="stat-val">{{ total_kontrak_bulan }}</div>
       <i class="bi bi-calendar-check-fill stat-icon"></i>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stat-card amber">
+      <div class="stat-lbl">BAST Dicairkan Bulan {{ nm_full[bulan_ini] }} {{ tahun_ini }}</div>
+      <div class="stat-val">{{ total_bast_bulan }}</div>
+      <i class="bi bi-file-earmark-check-fill stat-icon"></i>
     </div>
   </div>
 </div>
 
-<!-- Kontrak Terbaru -->
+<!-- Progress per Fungsi Bulan Ini -->
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h6 class="mb-0 fw-semibold">
+      <i class="bi bi-bar-chart-steps me-2 text-primary"></i>
+      Progress Entri Kontrak &amp; BAST — {{ nm_full[bulan_ini] }} {{ tahun_ini }}
+    </h6>
+    <small class="text-muted">per fungsi</small>
+  </div>
+  <div class="card-body">
+
+    <!-- Header tabel progress -->
+    <div class="row g-0 mb-2 px-2" style="font-size:11px;color:#6B7A99;font-weight:600;">
+      <div class="col-3">FUNGSI</div>
+      <div class="col-4">KONTRAK SPK BULAN INI</div>
+      <div class="col-4">BAST DICAIRKAN BULAN INI</div>
+      <div class="col-1 text-end">STATUS</div>
+    </div>
+
+    {% for p in progress_fungsi %}
+    <div class="row g-0 align-items-center mb-3 px-2">
+      <!-- Label fungsi -->
+      <div class="col-3">
+        <span class="badge-fungsi">{{ p.fungsi }}</span>
+      </div>
+
+      <!-- Progress SPK -->
+      <div class="col-4 pe-3">
+        <div class="d-flex justify-content-between mb-1" style="font-size:11px;">
+          <span class="text-muted">{{ p.jml_kontrak }} kontrak</span>
+        </div>
+        <div class="progress" style="height:8px;border-radius:4px;">
+          {% set pct_spk = [p.jml_kontrak * 10, 100]|min %}
+          <div class="progress-bar"
+               style="width:{{ pct_spk }}%;background:#1341A0;border-radius:4px;"
+               title="{{ p.jml_kontrak }} kontrak SPK">
+          </div>
+        </div>
+        {% if p.jml_kontrak == 0 %}
+        <div style="font-size:10px;color:#DC2626;margin-top:2px;">
+          <i class="bi bi-x-circle me-1"></i>Belum ada kontrak
+        </div>
+        {% else %}
+        <div style="font-size:10px;color:#065F46;margin-top:2px;">
+          <i class="bi bi-check-circle me-1"></i>{{ p.jml_kontrak }} mitra dikontrak
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Progress BAST -->
+      <div class="col-4 pe-3">
+        <div class="d-flex justify-content-between mb-1" style="font-size:11px;">
+          <span class="text-muted">{{ p.jml_bast }} BAST</span>
+        </div>
+        <div class="progress" style="height:8px;border-radius:4px;">
+          {% set pct_bast = [p.jml_bast * 10, 100]|min %}
+          <div class="progress-bar"
+               style="width:{{ pct_bast }}%;background:#0F6E56;border-radius:4px;"
+               title="{{ p.jml_bast }} BAST dicairkan">
+          </div>
+        </div>
+        {% if p.jml_bast == 0 %}
+        <div style="font-size:10px;color:#D97706;margin-top:2px;">
+          <i class="bi bi-clock me-1"></i>Belum ada BAST dicairkan
+        </div>
+        {% else %}
+        <div style="font-size:10px;color:#065F46;margin-top:2px;">
+          <i class="bi bi-check-circle-fill me-1"></i>{{ p.jml_bast }} mitra dicairkan
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Status ikon -->
+      <div class="col-1 text-end">
+        {% if p.jml_kontrak == 0 and p.jml_bast == 0 %}
+          <i class="bi bi-dash-circle text-muted" title="Belum ada aktivitas"></i>
+        {% elif p.jml_bast == 0 %}
+          <i class="bi bi-exclamation-circle text-warning" title="Kontrak ada, BAST belum"></i>
+        {% elif p.jml_bast >= p.jml_kontrak %}
+          <i class="bi bi-check-circle-fill text-success" title="Semua sudah di-BAST"></i>
+        {% else %}
+          <i class="bi bi-arrow-repeat text-primary" title="Sebagian sudah di-BAST"></i>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if not loop.last %}
+    <div class="border-bottom mb-3"></div>
+    {% endif %}
+    {% endfor %}
+
+  </div>
+  <div class="card-footer py-2" style="font-size:11px;color:#6B7A99;">
+    <i class="bi bi-info-circle me-1"></i>
+    Progress bar SPK berdasarkan jumlah kontrak bulan {{ nm_full[bulan_ini] }} per fungsi.
+    Progress BAST berdasarkan jumlah BAST yang dicairkan bulan {{ nm_full[bulan_ini] }}.
+  </div>
+</div>
+
+<!-- 5 Kontrak Terbaru -->
 <div class="card">
-  <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-    <h6 class="mb-0 fw-semibold">Kontrak Terbaru</h6>
-    <a href="{{ url_for('main.entri_kontrak') }}" class="btn btn-bps btn-sm">
-      <i class="bi bi-plus-lg me-1"></i>Input Kegiatan
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h6 class="mb-0 fw-semibold">
+      <i class="bi bi-clock-history me-2 text-muted"></i>5 Kontrak Terbaru
+    </h6>
+    <a href="{{ url_for('main.daftar_kontrak') }}" class="btn btn-outline-primary btn-sm">
+      Lihat Semua <i class="bi bi-arrow-right ms-1"></i>
     </a>
   </div>
   <div class="card-body p-0">
-    <table class="table table-hover mb-0">
-      <thead style="background:#f8f9fb;font-size:13px;">
+    <table class="table table-hover mb-0" style="font-size:13px;">
+      <thead style="background:#f8f9fb;">
         <tr>
-          <th class="px-3">No. Surat</th>
+          <th class="px-3">Nomor SPK</th>
           <th>Petugas</th>
           <th>Fungsi</th>
-          <th>Bulan</th>
+          <th>Periode</th>
           <th>Total Honor</th>
-          <th></th>
+          <th style="width:60px;"></th>
         </tr>
       </thead>
-      <tbody style="font-size:13px;">
-        {% set nama_bulan = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'] %}
+      <tbody>
         {% for k in kontrak_terbaru %}
         <tr>
-          <td class="px-3 fw-medium">{{ k.nomor_spk or "-" }}</td>
-          <td>{{ k.petugas.nama }}</td>
-          <td class="text-muted">{{ k.nama_fungsi or "-" }}</td>
-          <td><span class="badge badge-bulan">{{ nama_bulan[k.bulan] }} {{ k.tahun }}</span></td>
-          <td>Rp {{ '{:,.0f}'.format(k.total_honor) }}</td>
+          <td class="px-3" style="font-size:12px;">{{ k.nomor_spk }}</td>
+          <td class="fw-medium">{{ k.petugas.nama }}</td>
+          <td>
+            <span class="badge-fungsi">{{ k.nama_fungsi or '—' }}</span>
+          </td>
+          <td>
+            <span class="badge" style="background:#EEF2FF;color:#1341A0;font-size:11px;">
+              {{ nm[k.bulan] }} {{ k.tahun }}
+            </span>
+          </td>
+          <td class="text-primary fw-medium">Rp {{ '{:,.0f}'.format(k.total_honor) }}</td>
           <td>
             <a href="{{ url_for('main.detail_kontrak', id=k.id) }}"
-               class="btn btn-outline-secondary btn-sm">Detail</a>
+               class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-eye"></i>
+            </a>
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="6" class="text-center text-muted py-4">Belum ada kontrak. <a href="{{ url_for('main.entri_kontrak') }}">Tambah sekarang</a></td></tr>
+        <tr>
+          <td colspan="6" class="text-center text-muted py-4">
+            Belum ada kontrak yang dibuat.
+          </td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
+
 {% endblock %}

@@ -9,428 +9,442 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bps-blue:    #1341A0;
-      --bps-dark:    #0A2560;
-      --bps-mid:     #1B52C4;
-      --bps-light:   #E8EFFE;
-      --bps-accent:  #3B82F6;
-      --sidebar-w:   250px;
-      --topbar-h:    64px;
-      --radius:      14px;
-      --radius-sm:   8px;
-      --shadow:      0 2px 12px rgba(19,65,160,0.10);
-      --shadow-lg:   0 8px 32px rgba(19,65,160,0.15);
+      --bps-blue:   #1341A0;
+      --bps-dark:   #0A2560;
+      --bps-mid:    #1B52C4;
+      --bps-light:  #E8EFFE;
+      --bps-accent: #3B82F6;
+      --sidebar-w:  240px;
+      --topbar-h:   58px;
+      --radius:     14px;
+      --radius-sm:  8px;
+      --shadow:     0 2px 12px rgba(19,65,160,0.10);
+      --shadow-lg:  0 8px 32px rgba(19,65,160,0.15);
     }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: 'Inter', sans-serif;
-      background: #F0F4FB;
-      color: #1e2a3a;
-      min-height: 100vh;
-    }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:'Inter',sans-serif; background:#F0F4FB; color:#1e2a3a; min-height:100vh; }
 
     /* ── SIDEBAR ── */
     .sidebar {
       width: var(--sidebar-w);
-      min-height: 100vh;
+      height: 100vh;
       background: linear-gradient(175deg, var(--bps-dark) 0%, var(--bps-blue) 60%, #1B52C4 100%);
-      position: fixed;
-      top: 0; left: 0;
-      z-index: 100;
-      display: flex;
-      flex-direction: column;
+      position: fixed; top:0; left:0; z-index:200;
+      display: flex; flex-direction:column;
       box-shadow: 4px 0 24px rgba(10,37,96,0.18);
+      transition: width .25s ease;
+      overflow: hidden;
     }
-
     /* Brand */
     .sidebar-brand {
-      padding: 24px 20px 20px;
+      padding: 18px 16px 14px;
       border-bottom: 1px solid rgba(255,255,255,0.10);
-    }
-    .brand-logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 4px;
-    }
-    .brand-icon {
-      width: 38px; height: 38px;
-      background: rgba(255,255,255,0.15);
-      border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px; color: #fff;
       flex-shrink: 0;
-      border: 1px solid rgba(255,255,255,0.2);
+    }
+    .brand-logo { display:flex; align-items:center; gap:10px; margin-bottom:4px; }
+    .brand-icon {
+      width:36px; height:36px;
+      background:rgba(255,255,255,0.15); border-radius:10px;
+      display:flex; align-items:center; justify-content:center;
+      flex-shrink:0; border:1px solid rgba(255,255,255,0.2);
     }
     .brand-name {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      font-weight: 800;
-      font-size: 20px;
-      color: #fff;
-      letter-spacing: 0.5px;
-      line-height: 1;
+      font-family:'Plus Jakarta Sans',sans-serif;
+      font-weight:800; font-size:18px; color:#fff; white-space:nowrap;
     }
-    .brand-tagline {
-      font-size: 10.5px;
-      color: rgba(255,255,255,0.55);
-      margin-top: 2px;
-      line-height: 1.3;
-    }
-    .brand-sub {
-      font-size: 11px;
-      color: rgba(255,255,255,0.45);
-      margin-top: 8px;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-    .brand-sub i { font-size: 10px; }
+    .brand-tagline { font-size:10px; color:rgba(255,255,255,0.5); margin-top:2px; white-space:nowrap; }
+    .brand-sub { font-size:10.5px; color:rgba(255,255,255,0.4); margin-top:6px; display:flex; align-items:center; gap:4px; }
 
-    /* Nav */
-    .sidebar-nav {
-      flex: 1;
-      padding: 12px 10px;
-      overflow-y: auto;
-    }
+    /* Nav scroll */
+    .sidebar-nav { flex:1; padding:8px 8px; overflow-y:auto; overflow-x:hidden; }
+    .sidebar-nav::-webkit-scrollbar { width:4px; }
+    .sidebar-nav::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.15); border-radius:4px; }
+
+    /* Section header */
     .nav-section {
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 1.2px;
-      color: rgba(255,255,255,0.35);
-      text-transform: uppercase;
-      padding: 12px 10px 4px;
+      font-size:9.5px; font-weight:700; letter-spacing:1.2px;
+      color:rgba(255,255,255,0.32); text-transform:uppercase;
+      padding:10px 10px 3px; white-space:nowrap;
     }
+
+    /* Nav link */
     .nav-link {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      color: rgba(255,255,255,0.70);
-      padding: 9px 12px;
-      border-radius: 10px;
-      font-size: 13.5px;
-      font-weight: 500;
-      margin-bottom: 2px;
-      transition: all .18s ease;
-      text-decoration: none;
+      display:flex; align-items:center; gap:9px;
+      color:rgba(255,255,255,0.70);
+      padding:8px 10px; border-radius:9px; font-size:13px; font-weight:500;
+      margin-bottom:1px; transition:all .15s ease; text-decoration:none;
+      white-space:nowrap;
     }
-    .nav-link i {
-      font-size: 16px;
-      width: 20px;
-      text-align: center;
-      flex-shrink: 0;
-    }
-    .nav-link:hover {
-      background: rgba(255,255,255,0.10);
-      color: #fff;
-      transform: translateX(2px);
-    }
+    .nav-link i { font-size:15px; width:18px; text-align:center; flex-shrink:0; }
+    .nav-link:hover { background:rgba(255,255,255,0.10); color:#fff; transform:translateX(2px); }
     .nav-link.active {
-      background: rgba(255,255,255,0.18);
-      color: #fff;
-      font-weight: 600;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      background:rgba(255,255,255,0.18); color:#fff; font-weight:600;
+      box-shadow:0 2px 8px rgba(0,0,0,0.15);
     }
-    .nav-link.active i { color: #93C5FD; }
+    .nav-link.active i { color:#93C5FD; }
+
+    /* Dropdown nav group */
+    .nav-group { margin-bottom:1px; }
+    .nav-group-toggle {
+      display:flex; align-items:center; gap:9px;
+      color:rgba(255,255,255,0.70); padding:8px 10px; border-radius:9px;
+      font-size:13px; font-weight:500; cursor:pointer;
+      transition:all .15s ease; user-select:none; white-space:nowrap;
+    }
+    .nav-group-toggle:hover { background:rgba(255,255,255,0.10); color:#fff; }
+    .nav-group-toggle.open   { color:#fff; background:rgba(255,255,255,0.08); }
+    .nav-group-toggle i.icon-main { font-size:15px; width:18px; text-align:center; flex-shrink:0; }
+    .nav-group-toggle .chevron {
+      margin-left:auto; font-size:11px; flex-shrink:0;
+      transition:transform .2s; opacity:0.6;
+    }
+    .nav-group-toggle.open .chevron { transform:rotate(180deg); }
+    .nav-group-body {
+      overflow:hidden; max-height:0; transition:max-height .25s ease;
+      padding-left:8px;
+    }
+    .nav-group-body.show { max-height:500px; }
+    .nav-group-body .nav-link { font-size:12.5px; padding:7px 10px 7px 28px; }
+    .nav-group-body .nav-link i { font-size:13px; width:16px; }
 
     /* Sidebar footer */
     .sidebar-footer {
-      padding: 14px 20px;
-      border-top: 1px solid rgba(255,255,255,0.10);
-      font-size: 11px;
-      color: rgba(255,255,255,0.3);
-      text-align: center;
+      padding:10px 14px; border-top:1px solid rgba(255,255,255,0.08);
+      font-size:10px; color:rgba(255,255,255,0.28); text-align:center; flex-shrink:0;
     }
 
     /* ── MAIN ── */
-    .main-wrap {
-      margin-left: var(--sidebar-w);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
+    .main-wrap { margin-left:var(--sidebar-w); min-height:100vh; display:flex; flex-direction:column; }
 
     /* Topbar */
     .topbar {
-      height: var(--topbar-h);
-      background: #fff;
-      border-bottom: 1px solid #E2E8F4;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 28px;
-      position: sticky;
-      top: 0;
-      z-index: 50;
-      box-shadow: 0 1px 8px rgba(19,65,160,0.06);
+      height:var(--topbar-h); background:#fff;
+      border-bottom:1px solid #E2E8F4;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:0 24px; position:sticky; top:0; z-index:50;
+      box-shadow:0 1px 8px rgba(19,65,160,0.06);
     }
     .topbar-title {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      font-weight: 700;
-      font-size: 17px;
-      color: var(--bps-dark);
+      font-family:'Plus Jakarta Sans',sans-serif;
+      font-weight:700; font-size:16px; color:var(--bps-dark);
     }
-    .topbar-right {
-      display: flex;
-      align-items: center;
-      gap: 12px;
+    .topbar-right { display:flex; align-items:center; gap:10px; }
+
+    /* User dropdown di topbar */
+    .user-dropdown-btn {
+      display:flex; align-items:center; gap:8px;
+      background:#EEF2FF; border:none; border-radius:20px;
+      padding:5px 14px 5px 8px; cursor:pointer;
+      transition:background .15s; font-size:13px; color:var(--bps-dark);
     }
-    .topbar-badge {
-      background: var(--bps-light);
-      color: var(--bps-blue);
-      font-size: 12px;
-      font-weight: 500;
-      padding: 4px 12px;
-      border-radius: 20px;
+    .user-dropdown-btn:hover { background:#DBEAFE; }
+    .user-dropdown-btn .avatar {
+      width:28px; height:28px; background:var(--bps-blue); border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      color:#fff; font-size:13px; flex-shrink:0;
     }
+    .user-dropdown-btn .user-name { font-weight:600; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .user-dropdown-btn .user-role { font-size:10.5px; color:#6B7A99; }
 
     /* Content */
-    .content-wrap {
-      flex: 1;
-      padding: 24px 28px 32px;
-    }
+    .content-wrap { flex:1; padding:22px 26px 30px; }
 
     /* ── CARDS ── */
-    .card {
-      border: none;
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      background: #fff;
-    }
+    .card { border:none; border-radius:var(--radius); box-shadow:var(--shadow); background:#fff; }
     .card-header {
-      border-bottom: 1px solid #F0F4FB;
-      border-radius: var(--radius) var(--radius) 0 0 !important;
-      padding: 16px 20px;
-      background: #fff;
+      border-bottom:1px solid #F0F4FB;
+      border-radius:var(--radius) var(--radius) 0 0 !important;
+      padding:14px 18px; background:#fff;
     }
-    .card-header h6 {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      font-weight: 700;
-      font-size: 14px;
-      color: var(--bps-dark);
-      margin: 0;
-    }
+    .card-header h6 { font-family:'Plus Jakarta Sans',sans-serif; font-weight:700; font-size:14px; color:var(--bps-dark); margin:0; }
 
     /* Stat cards */
-    .stat-card {
-      border-radius: var(--radius);
-      padding: 20px 22px;
-      position: relative;
-      overflow: hidden;
-      color: #fff;
-      box-shadow: var(--shadow-lg);
-    }
-    .stat-card::after {
-      content: '';
-      position: absolute;
-      width: 80px; height: 80px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.10);
-      right: -15px; top: -15px;
-    }
-    .stat-card.blue   { background: linear-gradient(135deg, #1341A0, #2563EB); }
-    .stat-card.green  { background: linear-gradient(135deg, #0C7A4A, #10B981); }
-    .stat-card.amber  { background: linear-gradient(135deg, #B45309, #F59E0B); }
-    .stat-card .stat-val {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      font-size: 32px;
-      font-weight: 800;
-      line-height: 1;
-      margin-bottom: 4px;
-    }
-    .stat-card .stat-lbl {
-      font-size: 12.5px;
-      opacity: 0.85;
-      font-weight: 500;
-    }
-    .stat-card .stat-icon {
-      position: absolute;
-      right: 20px; bottom: 16px;
-      font-size: 32px;
-      opacity: 0.18;
-    }
+    .stat-card { border-radius:var(--radius); padding:18px 20px; position:relative; overflow:hidden; color:#fff; box-shadow:var(--shadow-lg); }
+    .stat-card::after { content:''; position:absolute; width:70px; height:70px; border-radius:50%; background:rgba(255,255,255,0.10); right:-12px; top:-12px; }
+    .stat-card.blue  { background:linear-gradient(135deg,#1341A0,#2563EB); }
+    .stat-card.green { background:linear-gradient(135deg,#0C7A4A,#10B981); }
+    .stat-card.amber { background:linear-gradient(135deg,#B45309,#F59E0B); }
+    .stat-card .stat-val { font-family:'Plus Jakarta Sans',sans-serif; font-size:30px; font-weight:800; line-height:1; margin-bottom:4px; }
+    .stat-card .stat-lbl { font-size:12px; opacity:.85; font-weight:500; }
+    .stat-card .stat-icon { position:absolute; right:18px; bottom:14px; font-size:28px; opacity:.18; }
 
     /* Buttons */
-    .btn-bps {
-      background: linear-gradient(135deg, var(--bps-blue), var(--bps-mid));
-      color: #fff;
-      border: none;
-      font-weight: 600;
-      border-radius: var(--radius-sm);
-      transition: all .2s;
-      font-size: 13px;
-    }
-    .btn-bps:hover {
-      background: linear-gradient(135deg, var(--bps-dark), var(--bps-blue));
-      color: #fff;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(19,65,160,0.3);
-    }
-    .btn-outline-secondary { border-radius: var(--radius-sm); font-size: 13px; }
-    .btn-outline-primary   { border-radius: var(--radius-sm); font-size: 13px; }
-    .btn-outline-danger    { border-radius: var(--radius-sm); font-size: 13px; }
-    .btn-outline-warning   { border-radius: var(--radius-sm); font-size: 13px; }
-    .btn-outline-success   { border-radius: var(--radius-sm); font-size: 13px; }
-    .btn-success           { border-radius: var(--radius-sm); font-size: 13px; }
+    .btn-bps { background:linear-gradient(135deg,var(--bps-blue),var(--bps-mid)); color:#fff; border:none; font-weight:600; border-radius:var(--radius-sm); transition:all .2s; font-size:13px; }
+    .btn-bps:hover { background:linear-gradient(135deg,var(--bps-dark),var(--bps-blue)); color:#fff; transform:translateY(-1px); box-shadow:0 4px 12px rgba(19,65,160,0.3); }
+    .btn-outline-secondary,.btn-outline-primary,.btn-outline-danger,.btn-outline-warning,.btn-outline-success,.btn-success { border-radius:var(--radius-sm); font-size:13px; }
 
     /* Tables */
-    .table { font-size: 13px; }
-    .table th {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      font-weight: 600;
-      font-size: 12px;
-      color: #6B7A99;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      padding: 10px 12px;
-      background: #F7F9FD;
-      border-bottom: 1px solid #E2E8F4;
-    }
-    .table td { padding: 11px 12px; vertical-align: middle; border-bottom: 1px solid #F0F4FB; }
-    .table-hover tbody tr:hover td { background: #F7F9FD; }
+    .table { font-size:13px; }
+    .table th { font-family:'Plus Jakarta Sans',sans-serif; font-weight:600; font-size:11.5px; color:#6B7A99; text-transform:uppercase; letter-spacing:.5px; padding:10px 12px; background:#F7F9FD; border-bottom:1px solid #E2E8F4; }
+    .table td { padding:10px 12px; vertical-align:middle; border-bottom:1px solid #F0F4FB; }
+    .table-hover tbody tr:hover td { background:#F7F9FD; }
 
     /* Badges */
-    .badge-bulan {
-      background: #EEF2FF;
-      color: var(--bps-blue);
-      font-weight: 600;
-      font-size: 11px;
-      padding: 4px 10px;
-      border-radius: 20px;
-    }
-    .badge-fungsi {
-      background: #EFF6FF;
-      color: #1D4ED8;
-      font-size: 11px;
-      font-weight: 500;
-      padding: 3px 9px;
-      border-radius: 20px;
-    }
+    .badge-bulan { background:#EEF2FF; color:var(--bps-blue); font-weight:600; font-size:11px; padding:4px 10px; border-radius:20px; }
+    .badge-fungsi { background:#EFF6FF; color:#1D4ED8; font-size:11px; font-weight:500; padding:3px 9px; border-radius:20px; }
 
     /* Alerts */
-    .alert { border-radius: var(--radius-sm); font-size: 13px; }
-    .alert-success { background: #ECFDF5; border: 1px solid #A7F3D0; color: #065F46; }
-    .alert-warning { background: #FFFBEB; border: 1px solid #FDE68A; color: #92400E; }
-    .alert-info    { background: #EFF6FF; border: 1px solid #BFDBFE; color: #1E40AF; }
-    .alert-danger  { background: #FEF2F2; border: 1px solid #FECACA; color: #991B1B; }
-    .alert-secondary { background: #F8FAFC; border: 1px solid #E2E8F4; color: #475569; }
-    .alert-light   { background: #F8FAFC; border: 1px solid #E2E8F4; color: #374151; }
+    .alert { border-radius:var(--radius-sm); font-size:13px; }
+    .alert-success  { background:#ECFDF5; border:1px solid #A7F3D0; color:#065F46; }
+    .alert-warning  { background:#FFFBEB; border:1px solid #FDE68A; color:#92400E; }
+    .alert-info     { background:#EFF6FF; border:1px solid #BFDBFE; color:#1E40AF; }
+    .alert-danger   { background:#FEF2F2; border:1px solid #FECACA; color:#991B1B; }
+    .alert-secondary{ background:#F8FAFC; border:1px solid #E2E8F4; color:#475569; }
 
-    /* Form controls */
-    .form-control, .form-select {
-      border-radius: var(--radius-sm);
-      border: 1px solid #D1DAF0;
-      font-size: 13px;
-      transition: border .2s, box-shadow .2s;
-    }
-    .form-control:focus, .form-select:focus {
-      border-color: var(--bps-accent);
-      box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
-    }
-    .form-label { font-size: 13px; font-weight: 500; color: #374151; }
+    /* Form */
+    .form-control,.form-select { border-radius:var(--radius-sm); border:1px solid #D1DAF0; font-size:13px; transition:border .2s,box-shadow .2s; }
+    .form-control:focus,.form-select:focus { border-color:var(--bps-accent); box-shadow:0 0 0 3px rgba(59,130,246,0.15); }
+    .form-label { font-size:13px; font-weight:500; color:#374151; }
 
-    /* Flash messages */
-    .flash-container { margin-bottom: 16px; }
-    .flash-container .alert {
-      display: flex;
-      align-items: center;
-      gap: 10px;
+    /* Flash */
+    .flash-container { margin-bottom:16px; }
+    .flash-container .alert { display:flex; align-items:center; gap:10px; }
+
+    /* Responsive: sembunyikan sidebar di layar kecil */
+    @media (max-width:768px) {
+      .sidebar { width:0; }
+      .main-wrap { margin-left:0; }
+      .sidebar.open { width:var(--sidebar-w); }
     }
   </style>
 </head>
 <body>
 
-<!-- SIDEBAR -->
-<aside class="sidebar">
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar" id="sidebar">
   <div class="sidebar-brand">
     <div class="brand-logo">
-      <div class="brand-icon"><i class="bi bi-database-fill-gear"></i></div>
+      <div class="brand-icon" style="background:white;padding:2px;">
+        <img src="{{ url_for('static', filename='img/logo_bps.svg') }}"
+             alt="Logo BPS" style="width:30px;height:30px;object-fit:contain;">
+      </div>
       <div>
         <div class="brand-name">SIEMIR</div>
         <div class="brand-tagline">Sistem Entri Mitra Rutinan</div>
       </div>
     </div>
     <div class="brand-sub">
-      <i class="bi bi-geo-alt-fill"></i>
-      BPS Kab. Kepulauan Meranti
+      <i class="bi bi-geo-alt-fill"></i>BPS Kab. Kepulauan Meranti
     </div>
   </div>
 
   <nav class="sidebar-nav">
-    <div class="nav-section">Menu Utama</div>
+
+    <!-- Beranda -->
     <a href="{{ url_for('main.index') }}"
        class="nav-link {% if request.endpoint == 'main.index' %}active{% endif %}">
-      <i class="bi bi-grid-1x2-fill"></i> Dashboard
-    </a>
-    <a href="{{ url_for('main.daftar_petugas') }}"
-       class="nav-link {% if 'petugas' in request.endpoint %}active{% endif %}">
-      <i class="bi bi-people-fill"></i> Data Petugas
+      <i class="bi bi-house-fill"></i> Beranda
     </a>
 
+    <!-- Kontrak & Kegiatan (dropdown) -->
     <div class="nav-section">Kontrak & Kegiatan</div>
-    <a href="{{ url_for('main.entri_kegiatan') }}"
-       class="nav-link {% if request.endpoint == 'main.entri_kegiatan' %}active{% endif %}">
-      <i class="bi bi-clipboard-plus"></i> Entri Kegiatan
-    </a>
-    <a href="{{ url_for('main.entri_kontrak') }}"
-       class="nav-link {% if request.endpoint == 'main.entri_kontrak' %}active{% endif %}">
-      <i class="bi bi-pencil-square"></i> Entri Kontrak
-    </a>
-    <a href="{{ url_for('main.daftar_kontrak') }}"
-       class="nav-link {% if 'kontrak' in request.endpoint and request.endpoint not in ['main.entri_kontrak','main.generate_bulanan','main.merge_spk','main.merge_bast'] %}active{% endif %}">
-      <i class="bi bi-file-earmark-text-fill"></i> Daftar Penggunaan Mitra
-    </a>
-    <a href="{{ url_for('main.entri_bast') }}" class="nav-link {% if request.endpoint in ['main.entri_bast'] %}active{% endif %}"><i class="bi bi-file-earmark-plus"></i> Entri BAST</a>
-    <a href="{{ url_for('main.daftar_bast') }}" class="nav-link {% if request.endpoint in ['main.daftar_bast','main.detail_bast'] %}active{% endif %}"><i class="bi bi-file-earmark-check-fill"></i> Daftar BAST</a>
 
+    {% set ep = request.endpoint %}
+
+    {% if session.get('user_role') in ['admin_kabupaten', 'admin_fungsi'] %}
+    <div class="nav-group">
+      <div class="nav-group-toggle {% if ep in ['main.entri_kegiatan'] %}open{% endif %}"
+           onclick="toggleGroup(this)">
+        <i class="bi bi-clipboard-plus icon-main"></i>
+        Entri Kegiatan
+        <i class="bi bi-chevron-down chevron"></i>
+      </div>
+      <div class="nav-group-body {% if ep in ['main.entri_kegiatan'] %}show{% endif %}">
+        <a href="{{ url_for('main.entri_kegiatan') }}"
+           class="nav-link {% if ep == 'main.entri_kegiatan' %}active{% endif %}">
+          <i class="bi bi-plus-circle"></i> Input Kegiatan
+        </a>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="nav-group">
+      <div class="nav-group-toggle {% if ep in ['main.entri_kontrak','main.daftar_kontrak','main.detail_kontrak'] %}open{% endif %}"
+           onclick="toggleGroup(this)">
+        <i class="bi bi-pencil-square icon-main"></i>
+        Kontrak SPK
+        <i class="bi bi-chevron-down chevron"></i>
+      </div>
+      <div class="nav-group-body {% if ep in ['main.entri_kontrak','main.daftar_kontrak','main.detail_kontrak'] %}show{% endif %}">
+        {% if session.get('user_role') in ['admin_kabupaten', 'admin_fungsi'] %}
+        <a href="{{ url_for('main.entri_kontrak') }}"
+           class="nav-link {% if ep == 'main.entri_kontrak' %}active{% endif %}">
+          <i class="bi bi-plus-circle"></i> Input Kontrak
+        </a>
+        {% endif %}
+        <a href="{{ url_for('main.daftar_kontrak') }}"
+           class="nav-link {% if ep in ['main.daftar_kontrak','main.detail_kontrak'] %}active{% endif %}">
+          <i class="bi bi-list-ul"></i> Daftar Penggunaan Mitra
+        </a>
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-toggle {% if ep in ['main.entri_bast','main.daftar_bast','main.detail_bast','main.generate_bast_massal'] %}open{% endif %}"
+           onclick="toggleGroup(this)">
+        <i class="bi bi-file-earmark-check icon-main"></i>
+        BAST
+        <i class="bi bi-chevron-down chevron"></i>
+      </div>
+      <div class="nav-group-body {% if ep in ['main.entri_bast','main.daftar_bast','main.detail_bast','main.generate_bast_massal'] %}show{% endif %}">
+        {% if session.get('user_role') in ['admin_kabupaten', 'admin_fungsi'] %}
+        <a href="{{ url_for('main.entri_bast') }}"
+           class="nav-link {% if ep == 'main.entri_bast' %}active{% endif %}">
+          <i class="bi bi-plus-circle"></i> Entri BAST
+        </a>
+        <a href="{{ url_for('main.generate_bast_massal') }}"
+           class="nav-link {% if ep == 'main.generate_bast_massal' %}active{% endif %}">
+          <i class="bi bi-lightning-fill"></i> Generate Massal
+        </a>
+        {% endif %}
+        <a href="{{ url_for('main.daftar_bast') }}"
+           class="nav-link {% if ep in ['main.daftar_bast','main.detail_bast'] %}active{% endif %}">
+          <i class="bi bi-list-check"></i> Daftar BAST
+        </a>
+      </div>
+    </div>
+
+    <!-- Dokumen & Laporan (dropdown) -->
     <div class="nav-section">Dokumen & Laporan</div>
-    <a href="{{ url_for('main.generate_bulanan') }}"
-       class="nav-link {% if request.endpoint in ['main.generate_bulanan','main.merge_spk','main.merge_bast'] %}active{% endif %}">
-      <i class="bi bi-file-earmark-arrow-down-fill"></i> Generate & Merge Dokumen
-    </a>
-    <a href="{{ url_for('main.rekap_honor') }}"
-       class="nav-link {% if request.endpoint == 'main.rekap_honor' %}active{% endif %}">
-      <i class="bi bi-cash-stack"></i> Rekap Honor Mitra
-    </a>
-    <a href="{{ url_for('main.laporan') }}"
-       class="nav-link {% if request.endpoint == 'main.laporan' %}active{% endif %}">
-      <i class="bi bi-bar-chart-fill"></i> Laporan & Grafik
-    </a>
+
+    <div class="nav-group">
+      <div class="nav-group-toggle {% if ep in ['main.generate_spk_bulanan','main.generate_bast_bulanan','main.merge_spk','main.merge_bast','main.hasil_merge_bast'] %}open{% endif %}"
+           onclick="toggleGroup(this)">
+        <i class="bi bi-file-earmark-zip icon-main"></i>
+        Generate & Merge
+        <i class="bi bi-chevron-down chevron"></i>
+      </div>
+      <div class="nav-group-body {% if ep in ['main.generate_spk_bulanan','main.generate_bast_bulanan','main.merge_spk','main.merge_bast','main.hasil_merge_bast'] %}show{% endif %}">
+        <a href="{{ url_for('main.generate_spk_bulanan') }}"
+           class="nav-link {% if ep in ['main.generate_spk_bulanan','main.merge_spk'] %}active{% endif %}">
+          <i class="bi bi-file-earmark-text"></i> Merge SPK
+        </a>
+        <a href="{{ url_for('main.generate_bast_bulanan') }}"
+           class="nav-link {% if ep in ['main.generate_bast_bulanan','main.merge_bast','main.hasil_merge_bast'] %}active{% endif %}">
+          <i class="bi bi-file-earmark-check"></i> Merge BAST
+        </a>
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-toggle {% if ep in ['main.rekap_honor','main.laporan'] %}open{% endif %}"
+           onclick="toggleGroup(this)">
+        <i class="bi bi-bar-chart-fill icon-main"></i>
+        Laporan
+        <i class="bi bi-chevron-down chevron"></i>
+      </div>
+      <div class="nav-group-body {% if ep in ['main.rekap_honor','main.laporan'] %}show{% endif %}">
+        <a href="{{ url_for('main.rekap_honor') }}"
+           class="nav-link {% if ep == 'main.rekap_honor' %}active{% endif %}">
+          <i class="bi bi-cash-stack"></i> Rekap Honor Mitra
+        </a>
+        <a href="{{ url_for('main.laporan') }}"
+           class="nav-link {% if ep == 'main.laporan' %}active{% endif %}">
+          <i class="bi bi-graph-up"></i> Laporan & Grafik
+        </a>
+      </div>
+    </div>
+
+    <!-- Administrasi -->
+    <div class="nav-section">Administrasi</div>
+
+    {% if session.get('user_role') == 'admin_kabupaten' %}
+    <div class="nav-group">
+      <div class="nav-group-toggle {% if 'petugas' in (ep or '') or ep in ['auth.daftar_pengguna','auth.tambah_pengguna','auth.edit_pengguna'] %}open{% endif %}"
+           onclick="toggleGroup(this)">
+        <i class="bi bi-people-fill icon-main"></i>
+        Data & Pengguna
+        <i class="bi bi-chevron-down chevron"></i>
+      </div>
+      <div class="nav-group-body {% if 'petugas' in (ep or '') or ep in ['auth.daftar_pengguna','auth.tambah_pengguna','auth.edit_pengguna'] %}show{% endif %}">
+        <a href="{{ url_for('main.daftar_petugas') }}"
+           class="nav-link {% if 'petugas' in (ep or '') %}active{% endif %}">
+          <i class="bi bi-people"></i> Data Petugas
+        </a>
+        <a href="{{ url_for('auth.daftar_pengguna') }}"
+           class="nav-link {% if ep in ['auth.daftar_pengguna','auth.tambah_pengguna','auth.edit_pengguna'] %}active{% endif %}">
+          <i class="bi bi-person-gear"></i> Manajemen Pengguna
+        </a>
+      </div>
+    </div>
+    {% endif %}
+
   </nav>
 
   <div class="sidebar-footer">
-    &copy; {{ 2026 }} SIEMIR · BPS Kab. Kepulauan Meranti
+    &copy; 2026 SIEMIR · BPS Kab. Kepulauan Meranti
   </div>
 </aside>
 
-<!-- MAIN -->
+<!-- ── MAIN ── -->
 <div class="main-wrap">
   <header class="topbar">
-    <div class="topbar-title">{% block page_title %}Dashboard{% endblock %}</div>
+    <div class="topbar-title">{% block page_title %}Beranda{% endblock %}</div>
     <div class="topbar-right">
+
       {% if session.user_id %}
-      <span class="topbar-badge" style="background:#EEF2FF;">
-        <i class="bi bi-person-circle me-1"></i>
-        {{ session.user_nama }}
-        <span class="ms-1 opacity-60" style="font-size:11px;">
-          {% if session.user_role == 'admin_kabupaten' %}· Admin Kabupaten
-          {% elif session.user_role == 'ppk' %}· PPK
-          {% else %}· Fungsi {{ session.user_fungsi }}
-          {% endif %}
-        </span>
-      </span>
+      <!-- User dropdown di topbar -->
+      <div class="dropdown">
+        <button class="user-dropdown-btn" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false">
+          <div class="avatar">
+            <i class="bi bi-person-fill"></i>
+          </div>
+          <div>
+            <div class="user-name">{{ session.get('user_nama','—') }}</div>
+            <div class="user-role">
+              {% if session.get('user_role') == 'admin_kabupaten' %}Admin Kabupaten
+              {% elif session.get('user_role') == 'ppk' %}PPK
+              {% else %}Admin Fungsi · {{ session.get('user_fungsi','') }}
+              {% endif %}
+            </div>
+          </div>
+          <i class="bi bi-chevron-down ms-1" style="font-size:11px;opacity:.5;"></i>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end shadow border-0"
+            style="border-radius:12px;min-width:200px;padding:8px;">
+          <li>
+            <div class="px-3 py-2" style="border-bottom:1px solid #F0F4FB;margin-bottom:4px;">
+              <div class="fw-semibold" style="font-size:13px;">
+                {{ session.get('user_nama','—') }}
+              </div>
+              <div style="font-size:11px;color:#6B7A99;">
+                {% if session.get('user_role') == 'admin_kabupaten' %}Administrator Kabupaten
+                {% elif session.get('user_role') == 'ppk' %}Pejabat Pembuat Komitmen
+                {% else %}Admin Fungsi {{ session.get('user_fungsi','') }}
+                {% endif %}
+              </div>
+            </div>
+          </li>
+          <li>
+            <a class="dropdown-item rounded-2 py-2" style="font-size:13px;"
+               href="{{ url_for('auth.ganti_password') }}">
+              <i class="bi bi-key me-2 text-primary"></i>Ganti Password
+            </a>
+          </li>
+          <li><hr class="dropdown-divider my-1"></li>
+          <li>
+            <a class="dropdown-item rounded-2 py-2 text-danger" style="font-size:13px;"
+               href="{{ url_for('auth.logout') }}"
+               onclick="return confirm('Yakin ingin keluar dari SIEMIR?')">
+              <i class="bi bi-box-arrow-right me-2"></i>Keluar
+            </a>
+          </li>
+        </ul>
+      </div>
       {% endif %}
+
     </div>
   </header>
 
   <main class="content-wrap">
-    <!-- Flash -->
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div class="flash-container">
           {% for category, message in messages %}
-            {% set icon = 'check-circle-fill' if category == 'success' else ('exclamation-triangle-fill' if category == 'warning' else 'x-circle-fill') %}
+            {% set icon = 'check-circle-fill' if category == 'success'
+                          else ('exclamation-triangle-fill' if category == 'warning'
+                          else 'x-circle-fill') %}
             <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
               <i class="bi bi-{{ icon }}"></i>
               {{ message }}
@@ -446,6 +460,30 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ── Sidebar Dropdown Toggle ──────────────────────────────────────
+function toggleGroup(el) {
+  const body = el.nextElementSibling;
+  const isOpen = body.classList.contains('show');
+
+  // Tutup semua group lain
+  document.querySelectorAll('.nav-group-body.show').forEach(b => {
+    b.classList.remove('show');
+    b.previousElementSibling.classList.remove('open');
+  });
+
+  // Buka yang diklik (jika belum terbuka)
+  if (!isOpen) {
+    body.classList.add('show');
+    el.classList.add('open');
+  }
+}
+
+// Pastikan group yang aktif terbuka saat halaman load
+document.querySelectorAll('.nav-group-toggle.open').forEach(el => {
+  el.nextElementSibling.classList.add('show');
+});
+</script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

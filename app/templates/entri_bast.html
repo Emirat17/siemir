@@ -5,368 +5,506 @@
 {% block content %}
 {% set nm = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] %}
 
-<div class="row g-3">
-
-  <!-- ── KOLOM KIRI: Form Pilih Petugas & Bulan ── -->
-  <div class="col-md-4">
-    <div class="card mb-3">
-      <div class="card-header">
-        <h6><span class="badge bg-primary me-2">1</span>Pilih Petugas & Bulan BAST</h6>
+<!-- Filter Bulan BAST -->
+<div class="card mb-3">
+  <div class="card-body py-2">
+    <div class="row g-2 align-items-center">
+      <div class="col-auto">
+        <label class="form-label mb-0 fw-medium" style="font-size:13px;">Bulan Pencairan (BAST):</label>
       </div>
-      <div class="card-body">
-
-        <div class="mb-3">
-          <label class="form-label">Petugas <span class="text-danger">*</span></label>
-          <select id="sel-petugas" class="form-select">
-            <option value="">— Pilih Petugas —</option>
-            {% for p in petugas_list %}
-            <option value="{{ p.id }}">{{ p.nama }}</option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <div class="row g-2 mb-3">
-          <div class="col">
-            <label class="form-label">Bulan BAST <span class="text-danger">*</span></label>
-            <select id="sel-bulan" class="form-select">
-              {% for i in range(1,13) %}
-              <option value="{{ i }}" {{ 'selected' if i==bulan }}>{{ nm[i] }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="col">
-            <label class="form-label">Tahun <span class="text-danger">*</span></label>
-            <input type="number" id="inp-tahun" class="form-control"
-                   value="{{ tahun }}" min="2020" max="2035">
-          </div>
-        </div>
-
-        <button type="button" id="btn-cari" class="btn btn-bps w-100">
-          <i class="bi bi-search me-1"></i>Cari Kegiatan
+      <div class="col-auto">
+        <select id="sel-bulan-global" class="form-select form-select-sm" style="width:160px;">
+          {% for i in range(1,13) %}
+          <option value="{{ i }}" {{ 'selected' if i==bulan }}>{{ nm[i] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <input type="number" id="inp-tahun-global" class="form-control form-control-sm"
+               value="{{ tahun }}" min="2020" max="2035" style="width:90px;">
+      </div>
+      <div class="col-auto">
+        <button id="btn-muat" class="btn btn-bps btn-sm">
+          <i class="bi bi-search me-1"></i>Tampilkan
         </button>
-
-        <!-- Info hasil pencarian -->
-        <div id="info-hasil" class="d-none mt-3">
-          <div class="alert alert-info py-2 mb-0" style="font-size:12px;">
-            <i class="bi bi-info-circle me-1"></i>
-            Menampilkan kegiatan untuk BAST
-            <strong id="lbl-bulan-bast">—</strong>.
-            Centang kegiatan yang akan dicairkan.
-          </div>
-        </div>
-        <div id="info-kosong" class="d-none mt-3">
-          <div class="alert alert-secondary py-2 mb-0" style="font-size:12px;">
-            <i class="bi bi-inbox me-1"></i>
-            Tidak ada kegiatan yang perlu masuk BAST bulan ini.
-          </div>
-        </div>
       </div>
-    </div>
-
-    <!-- Ringkasan pilihan -->
-    <div class="card d-none" id="card-ringkasan">
-      <div class="card-header">
-        <h6><i class="bi bi-calculator me-2 text-success"></i>Ringkasan</h6>
-      </div>
-      <div class="card-body">
-        <div class="d-flex justify-content-between mb-2">
-          <span class="text-muted" style="font-size:13px;">Kegiatan dipilih</span>
-          <strong id="jml-dipilih">0</strong>
-        </div>
-        <div class="d-flex justify-content-between mb-3">
-          <span class="text-muted" style="font-size:13px;">Total Honor</span>
-          <strong class="text-primary" id="total-honor">Rp 0</strong>
-        </div>
-        <button type="button" id="btn-simpan" class="btn btn-bps w-100" disabled>
-          <i class="bi bi-check-lg me-1"></i>Simpan BAST
-        </button>
+      <div class="col-auto ms-auto">
+        <span id="badge-bulan-aktif" class="badge"
+              style="background:#1341A0;font-size:12px;padding:6px 14px;">
+          {{ nm[bulan] }} {{ tahun }}
+        </span>
       </div>
     </div>
   </div>
+</div>
 
-  <!-- ── KOLOM KANAN: Daftar Kegiatan ── -->
+<div class="row g-3">
+
+  <!-- PANEL KIRI: Daftar Petugas -->
+  <div class="col-md-4">
+    <ul class="nav nav-tabs mb-0" style="border-bottom:none;">
+      <li class="nav-item">
+        <button class="nav-link active py-1 px-3" id="tab-pending"
+                style="font-size:12.5px;" onclick="switchTab('pending')">
+          <i class="bi bi-clock-history me-1 text-warning"></i>Belum BAST
+          <span id="badge-pending" class="badge bg-warning text-dark ms-1">—</span>
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link py-1 px-3" id="tab-selesai"
+                style="font-size:12.5px;" onclick="switchTab('selesai')">
+          <i class="bi bi-check-circle-fill me-1 text-success"></i>Sudah BAST
+          <span id="badge-selesai" class="badge bg-success ms-1">—</span>
+        </button>
+      </li>
+    </ul>
+    <div class="card" style="border-top-left-radius:0;">
+      <div class="card-body py-2 border-bottom">
+        <input type="text" id="inp-cari" class="form-control form-control-sm"
+               placeholder="Cari nama petugas..." oninput="filterPetugas()">
+      </div>
+      <div id="state-loading-panel" class="text-center py-4 d-none">
+        <div class="spinner-border text-primary" style="width:1.5rem;height:1.5rem;"></div>
+        <div class="mt-2 text-muted" style="font-size:12px;">Memuat data...</div>
+      </div>
+      <div id="state-awal-panel" class="text-center text-muted py-5">
+        <i class="bi bi-calendar2-check fs-2 d-block mb-2 opacity-25"></i>
+        <div style="font-size:12.5px;">Pilih bulan dan klik Tampilkan</div>
+      </div>
+      <div id="list-pending" class="d-none" style="max-height:460px;overflow-y:auto;"></div>
+      <div id="list-selesai" class="d-none" style="max-height:460px;overflow-y:auto;"></div>
+    </div>
+  </div>
+
+  <!-- PANEL KANAN: Form Kegiatan -->
   <div class="col-md-8">
     <div class="card">
-      <div class="card-header">
-        <h6><span class="badge bg-primary me-2">2</span>Pilih Kegiatan yang Masuk BAST
-          <span id="badge-bulan" class="badge bg-secondary ms-1">—</span>
+      <div class="card-header" id="hdr-kanan" style="background:#F7F9FD;">
+        <h6 class="mb-0 fw-semibold text-muted" style="font-size:13px;">
+          <i class="bi bi-arrow-left me-2 opacity-50"></i>
+          Pilih petugas dari daftar untuk mulai entri BAST
         </h6>
       </div>
-      <div class="card-body" id="area-kegiatan">
-
-        <!-- State awal -->
-        <div id="state-awal" class="text-center text-muted py-5">
-          <i class="bi bi-arrow-left-circle fs-2 d-block mb-2 opacity-25"></i>
-          Pilih petugas dan bulan BAST, lalu klik "Cari Kegiatan"
+      <div id="awal-kanan" class="text-center text-muted py-5">
+        <i class="bi bi-person-check fs-1 d-block mb-3 opacity-25"></i>
+        <p style="font-size:13px;">Klik nama petugas di panel kiri.</p>
+      </div>
+      <div id="loading-kanan" class="d-none text-center py-5">
+        <div class="spinner-border text-primary"></div>
+        <div class="mt-2 text-muted" style="font-size:13px;">Mengambil data kegiatan...</div>
+      </div>
+      <div id="konten-kanan" class="d-none">
+        <div class="card-body border-bottom py-2" id="info-petugas"></div>
+        <div class="card-body" id="area-kegiatan" style="max-height:360px;overflow-y:auto;"></div>
+        <div class="card-footer">
+          <div class="row align-items-center">
+            <div class="col">
+              <div class="d-flex gap-4 mb-1">
+                <div>
+                  <div class="text-muted" style="font-size:11px;">Kegiatan dipilih</div>
+                  <div class="fw-bold" id="jml-dipilih">0</div>
+                </div>
+                <div>
+                  <div class="text-muted" style="font-size:11px;">Total Honor</div>
+                  <div class="fw-bold text-primary" id="total-honor">Rp 0</div>
+                </div>
+              </div>
+              <div class="progress" style="height:5px;width:220px;">
+                <div id="bar-sbml" class="progress-bar" style="width:0%;background:#1341A0;"></div>
+              </div>
+              <div id="alert-sbml" class="d-none mt-1 px-2 py-1 rounded"
+                   style="background:#FEF2F2;border:1px solid #FECACA;font-size:11px;">
+                <i class="bi bi-exclamation-triangle-fill text-danger me-1"></i>
+                <span class="text-danger fw-bold">Melebihi SBML!</span>
+                Total <span id="lbl-total-sbml"></span> &gt; Rp 3.600.000
+                (selisih: <span id="lbl-selisih"></span>)
+              </div>
+              <div id="alert-aman" class="d-none mt-1 px-2 py-1 rounded"
+                   style="background:#ECFDF5;border:1px solid #A7F3D0;font-size:11px;">
+                <i class="bi bi-check-circle-fill me-1" style="color:#065F46;"></i>
+                <span style="color:#065F46;">Total honor dalam batas SBML</span>
+              </div>
+            </div>
+            <div class="col-auto">
+              <button id="btn-simpan" class="btn btn-bps" disabled onclick="simpanBAST()">
+                <i class="bi bi-check-lg me-1"></i>Simpan BAST
+              </button>
+            </div>
+          </div>
         </div>
-
-        <!-- Loading -->
-        <div id="state-loading" class="d-none text-center py-4">
-          <div class="spinner-border text-primary" style="width:2rem;height:2rem;"></div>
-          <div class="mt-2 text-muted" style="font-size:13px;">Mengambil data kegiatan...</div>
-        </div>
-
-        <!-- Konten kegiatan (diisi JS) -->
-        <div id="state-konten" class="d-none"></div>
-
       </div>
     </div>
   </div>
 
 </div>
 
-<!-- Form tersembunyi untuk submit -->
-<form id="form-submit" method="POST" action="{{ url_for('main.entri_bast') }}">
-  <input type="hidden" name="action" value="simpan">
-  <input type="hidden" name="petugas_id"   id="hid-petugas">
-  <input type="hidden" name="bulan_bast"   id="hid-bulan">
-  <input type="hidden" name="tahun_bast"   id="hid-tahun">
-  <input type="hidden" name="kontrak_id"   id="hid-kontrak">
-  <div id="hid-kegiatan-wrap"></div>
+<form id="form-bast" method="POST" action="{{ url_for('main.entri_bast') }}">
+  <input type="hidden" name="action"     value="simpan">
+  <input type="hidden" name="petugas_id" id="hid-petugas">
+  <input type="hidden" name="bulan_bast" id="hid-bulan">
+  <input type="hidden" name="tahun_bast" id="hid-tahun">
+  <input type="hidden" name="kontrak_id" id="hid-kontrak">
+  <div id="hid-keg-wrap"></div>
 </form>
 {% endblock %}
 
 {% block scripts %}
 <script>
-const NM = ['','Januari','Februari','Maret','April','Mei','Juni',
-            'Juli','Agustus','September','Oktober','November','Desember'];
+const NM   = ['','Januari','Februari','Maret','April','Mei','Juni',
+               'Juli','Agustus','September','Oktober','November','Desember'];
+const SBML = 3600000;
+let tabAktif = 'pending';
+let kontrakAktif = null;
 
 function fmtRp(v) {
   return 'Rp ' + parseFloat(v||0).toLocaleString('id-ID');
 }
 
-// Hitung ulang total dari checkbox yang tercentang
-function hitungRingkasan() {
-  let jml = 0, total = 0;
-  document.querySelectorAll('.chk-kegiatan:checked').forEach(chk => {
-    jml++;
-    total += parseFloat(chk.dataset.honor || 0);
+// ── Tab ─────────────────────────────────────────────────────────
+function switchTab(tab) {
+  tabAktif = tab;
+  ['pending','selesai'].forEach(t => {
+    document.getElementById('tab-'+t).classList.toggle('active', t===tab);
+    document.getElementById('list-'+t).classList.toggle('d-none', t!==tab);
   });
-  document.getElementById('jml-dipilih').textContent = jml + ' kegiatan';
-  document.getElementById('total-honor').textContent = fmtRp(total);
-  document.getElementById('btn-simpan').disabled = jml === 0;
 }
 
-// Buat kartu satu kontrak dengan daftar kegiatannya
-function buatKartuKontrak(k) {
-  const allKegiatan = [...k.kegiatan_saran, ...k.kegiatan_lain];
-  if (allKegiatan.length === 0) return '';
-
-  const saranHtml = k.kegiatan_saran.map(keg => buatBariKegiatan(keg, k, true)).join('');
-  const lainHtml  = k.kegiatan_lain.map(keg  => buatBariKegiatan(keg, k, false)).join('');
-
-  const warningEdit = k.sudah_ada_bast
-    ? `<div class="alert alert-warning py-1 mb-2" style="font-size:11px;">
-         <i class="bi bi-pencil-square me-1"></i>
-         BAST bulan ini sudah ada — menyimpan akan <strong>mengganti</strong> pilihan sebelumnya.
-       </div>` : '';
-
-  return `
-  <div class="border rounded mb-3 overflow-hidden">
-    <div style="background:#0A2560;padding:8px 14px;">
-      <div class="d-flex justify-content-between align-items-center">
-        <div>
-          <span class="text-white fw-bold" style="font-size:13px;">SPK: ${k.nomor_spk}</span>
-          <span class="ms-2 text-opacity-75" style="color:rgba(255,255,255,.6);font-size:11px;">
-            Bulan ${k.bulan_spk} ${k.tahun_spk}
-          </span>
-        </div>
-        <div>
-          <button type="button" class="btn btn-sm btn-outline-light py-0 px-2"
-                  onclick="pilihSemua('${k.kontrak_id}', true)"
-                  style="font-size:11px;">✓ Semua</button>
-          <button type="button" class="btn btn-sm btn-outline-light py-0 px-2 ms-1"
-                  onclick="pilihSemua('${k.kontrak_id}', false)"
-                  style="font-size:11px;">✗ Batal</button>
-        </div>
-      </div>
-    </div>
-    <div class="p-2">
-      ${warningEdit}
-      ${k.kegiatan_saran.length > 0 ? `
-        <div class="mb-1">
-          <span class="badge" style="background:#ECFDF5;color:#065F46;font-size:10px;">
-            <i class="bi bi-check-circle-fill me-1"></i>Disarankan masuk BAST bulan ini
-          </span>
-        </div>
-        ${saranHtml}` : ''}
-      ${k.kegiatan_lain.length > 0 ? `
-        <div class="mt-2 mb-1">
-          <span class="badge" style="background:#F0F4FF;color:#1341A0;font-size:10px;">
-            <i class="bi bi-info-circle me-1"></i>Kegiatan lain dari kontrak ini
-          </span>
-        </div>
-        ${lainHtml}` : ''}
-    </div>
-  </div>`;
+// ── Cari Petugas ────────────────────────────────────────────────
+function filterPetugas() {
+  const q = document.getElementById('inp-cari').value.toLowerCase();
+  ['list-pending','list-selesai'].forEach(id => {
+    document.querySelectorAll('#'+id+' .kp').forEach(el => {
+      el.style.display = el.dataset.nama.toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
 }
 
-function buatBariKegiatan(keg, kontrak, isSaran) {
-  const checked   = isSaran ? 'checked' : '';
-  const bgWarna   = isSaran ? '#F0FDF4' : '#FAFAFA';
-  const borderW   = isSaran ? '#A7F3D0' : '#E2E8F4';
-  const saranBadge = keg.bulan_bast_saran !== '' && !isSaran
-    ? `<span class="ms-1" style="font-size:10px;color:#6B7A99;">
-         (disarankan BAST ${keg.bulan_bast_saran})
-       </span>` : '';
+// ── Muat Daftar ─────────────────────────────────────────────────
+function muatDaftar() {
+  const bulan = document.getElementById('sel-bulan-global').value;
+  const tahun = document.getElementById('inp-tahun-global').value;
+  if (!bulan || !tahun) return;
 
-  return `
-  <div class="d-flex align-items-start p-2 mb-1 rounded"
-       style="background:${bgWarna};border:1px solid ${borderW};">
-    <input type="checkbox" class="form-check-input chk-kegiatan mt-1 me-2 flex-shrink-0"
-           data-kontrak="${kontrak.kontrak_id}"
-           data-honor="${keg.honor_total}"
-           value="${keg.id}"
-           id="chk-${keg.id}" ${checked}
-           onchange="handleCheckbox(this, '${kontrak.kontrak_id}')">
-    <label class="form-check-label w-100" for="chk-${keg.id}" style="cursor:pointer;">
+  document.getElementById('badge-bulan-aktif').textContent = NM[+bulan]+' '+tahun;
+  document.getElementById('state-awal-panel').classList.add('d-none');
+  document.getElementById('state-loading-panel').classList.remove('d-none');
+  document.getElementById('list-pending').classList.add('d-none');
+  document.getElementById('list-selesai').classList.add('d-none');
+  resetKanan();
+
+  fetch(`/api/pending-bast?bulan_bast=${bulan}&tahun_bast=${tahun}`)
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('state-loading-panel').classList.add('d-none');
+      document.getElementById('badge-pending').textContent = data.pending.length;
+      document.getElementById('badge-selesai').textContent = data.selesai.length;
+      renderList('list-pending', data.pending, false);
+      renderList('list-selesai', data.selesai, true);
+      document.getElementById('list-pending').classList.remove('d-none');
+      document.getElementById('list-selesai').classList.remove('d-none');
+      switchTab('pending');
+    })
+    .catch(() => {
+      document.getElementById('state-loading-panel').classList.add('d-none');
+      document.getElementById('state-awal-panel').classList.remove('d-none');
+    });
+}
+
+// ── Render List Petugas ──────────────────────────────────────────
+function renderList(containerId, list, isSelesai) {
+  const cont = document.getElementById(containerId);
+  if (list.length === 0) {
+    cont.innerHTML = `<div class="text-center text-muted py-4" style="font-size:12px;">
+      <i class="bi bi-${isSelesai?'check-circle':'inbox'} fs-3 d-block mb-2 opacity-25"></i>
+      ${isSelesai?'Semua kegiatan sudah di-BAST.':'Tidak ada kegiatan yang perlu di-BAST bulan ini.'}
+    </div>`;
+    return;
+  }
+  cont.innerHTML = list.map(p => `
+    <div class="kp border-bottom px-3 py-2" data-nama="${p.nama}" data-id="${p.petugas_id}"
+         style="cursor:pointer;transition:background .12s;"
+         onmouseenter="this.style.background='#F0F4FF'"
+         onmouseleave="if(this.dataset.aktif!='1')this.style.background=''"
+         onclick="pilihPetugas(${p.petugas_id},'${p.nama.replace(/'/g,"\\'")}')">
       <div class="d-flex justify-content-between align-items-start">
         <div>
-          <span class="fw-medium" style="font-size:13px;">${keg.nama_kegiatan}</span>
-          ${saranBadge}
-          <div style="font-size:11px;color:#6B7A99;margin-top:2px;">
-            <span class="badge" style="background:#EEF2FF;color:#1341A0;font-size:10px;">${keg.fungsi}</span>
-            ${keg.tgl_mulai} s.d ${keg.tgl_selesai} &nbsp;|&nbsp;
-            ${keg.volume} ${keg.satuan}
-          </div>
+          <div class="fw-medium" style="font-size:13px;">${p.nama}</div>
+          <div class="text-muted" style="font-size:11px;">${p.kecamatan}</div>
         </div>
         <div class="text-end flex-shrink-0 ms-2">
-          <div class="fw-bold text-primary" style="font-size:12px;">${fmtRp(keg.honor_total)}</div>
-          <div style="font-size:10px;color:#6B7A99;">Akun: ${keg.mata_akun}</div>
+          ${isSelesai
+            ? `<span class="badge bg-success bg-opacity-15 text-success" style="font-size:10px;">
+                 <i class="bi bi-check-circle me-1"></i>${p.jml_total} selesai
+               </span>`
+            : `<span class="badge bg-warning bg-opacity-15 text-warning" style="font-size:10px;">
+                 ${p.jml_pending} pending
+               </span>
+               ${p.jml_sudah>0?`<div style="font-size:10px;color:#065F46;">${p.jml_sudah} sudah ✓</div>`:''}`
+          }
         </div>
       </div>
-    </label>
-  </div>`;
-}
-
-// Simpan kontrak_id aktif (untuk form submit)
-let kontrakAktif = null;
-
-function handleCheckbox(chk, kontrakId) {
-  // Jika user mencentang kegiatan dari kontrak baru,
-  // tanya apakah batal pilihan kontrak sebelumnya
-  if (kontrakAktif && kontrakAktif !== kontrakId && chk.checked) {
-    const sudahAdaDariKontrakLain = document.querySelectorAll(
-      `.chk-kegiatan:checked[data-kontrak="${kontrakAktif}"]`
-    ).length > 0;
-
-    if (sudahAdaDariKontrakLain) {
-      if (!confirm('Satu BAST hanya bisa dari satu kontrak (satu SPK).\n' +
-                   'Batalkan pilihan dari kontrak sebelumnya dan lanjutkan?')) {
-        chk.checked = false;
-        hitungRingkasan();
-        return;
+      ${!isSelesai && p.kegiatan_pending.length>0
+        ? `<div class="mt-1">${
+            p.kegiatan_pending.slice(0,2).map(k=>
+              `<span class="badge me-1" style="background:#EEF2FF;color:#1341A0;font-size:9px;font-weight:normal;">
+                ${k.nama.length>25?k.nama.substring(0,25)+'…':k.nama}
+              </span>`
+            ).join('')
+          }${p.kegiatan_pending.length>2?`<span class="text-muted" style="font-size:10px;">+${p.kegiatan_pending.length-2} lainnya</span>`:''}</div>`
+        : ''
       }
-      // Batal semua dari kontrak sebelumnya
-      document.querySelectorAll(`.chk-kegiatan[data-kontrak="${kontrakAktif}"]`)
-        .forEach(c => { c.checked = false; });
-    }
-  }
-  if (chk.checked) kontrakAktif = kontrakId;
-  hitungRingkasan();
+    </div>
+  `).join('');
 }
 
-function pilihSemua(kontrakId, pilih) {
-  if (pilih && kontrakAktif && kontrakAktif !== kontrakId) {
-    const adaDariLain = document.querySelectorAll(
-      `.chk-kegiatan:checked:not([data-kontrak="${kontrakId}"])`
-    ).length > 0;
-    if (adaDariLain) {
-      if (!confirm('Satu BAST hanya bisa dari satu kontrak.\nBatalkan pilihan kontrak lain?')) return;
-      document.querySelectorAll(`.chk-kegiatan:not([data-kontrak="${kontrakId}"])`)
-        .forEach(c => { c.checked = false; });
-    }
-  }
-  document.querySelectorAll(`.chk-kegiatan[data-kontrak="${kontrakId}"]`)
-    .forEach(c => { c.checked = pilih; });
-  if (pilih) kontrakAktif = kontrakId;
-  hitungRingkasan();
-}
+// ── Pilih Petugas ────────────────────────────────────────────────
+function pilihPetugas(pid, nama) {
+  const bulan = document.getElementById('sel-bulan-global').value;
+  const tahun = document.getElementById('inp-tahun-global').value;
 
-// Cari kegiatan dari API
-document.getElementById('btn-cari').addEventListener('click', () => {
-  const pid   = document.getElementById('sel-petugas').value;
-  const bulan = document.getElementById('sel-bulan').value;
-  const tahun = document.getElementById('inp-tahun').value;
+  // Highlight
+  document.querySelectorAll('.kp').forEach(el => {
+    const isThis = el.dataset.id == pid;
+    el.style.background  = isThis ? '#EEF2FF' : '';
+    el.style.borderLeft  = isThis ? '3px solid #1341A0' : '';
+    el.style.paddingLeft = isThis ? '9px' : '';
+    el.dataset.aktif     = isThis ? '1' : '';
+  });
 
-  if (!pid) { alert('Pilih petugas terlebih dahulu.'); return; }
-  if (!bulan || !tahun) { alert('Pilih bulan dan tahun BAST.'); return; }
+  // Header kanan
+  document.getElementById('hdr-kanan').innerHTML = `
+    <div class="d-flex justify-content-between align-items-center">
+      <h6 class="mb-0 fw-semibold" style="font-size:13px;">
+        <i class="bi bi-person-fill me-2 text-primary"></i>${nama}
+      </h6>
+      <span class="badge" style="background:#EEF2FF;color:#1341A0;font-size:11px;">
+        BAST ${NM[+bulan]} ${tahun}
+      </span>
+    </div>`;
 
-  // Update badge
-  const lblBulan = NM[parseInt(bulan)] + ' ' + tahun;
-  document.getElementById('badge-bulan').textContent = lblBulan;
-  document.getElementById('lbl-bulan-bast').textContent = lblBulan;
-
-  // Tampilkan loading
-  document.getElementById('state-awal').classList.add('d-none');
-  document.getElementById('state-loading').classList.remove('d-none');
-  document.getElementById('state-konten').classList.add('d-none');
-  document.getElementById('info-hasil').classList.add('d-none');
-  document.getElementById('info-kosong').classList.add('d-none');
-  document.getElementById('card-ringkasan').classList.add('d-none');
+  // Loading
+  document.getElementById('awal-kanan').classList.add('d-none');
+  document.getElementById('loading-kanan').classList.remove('d-none');
+  document.getElementById('konten-kanan').classList.add('d-none');
+  resetRingkasan();
   kontrakAktif = null;
+
+  document.getElementById('hid-petugas').value = pid;
+  document.getElementById('hid-bulan').value   = bulan;
+  document.getElementById('hid-tahun').value   = tahun;
 
   fetch(`/api/kegiatan-bast?petugas_id=${pid}&bulan_bast=${bulan}&tahun_bast=${tahun}`)
     .then(r => r.json())
     .then(data => {
-      document.getElementById('state-loading').classList.add('d-none');
-      const kontrakList = data.kontrak_list || [];
+      document.getElementById('loading-kanan').classList.add('d-none');
+      const list = data.kontrak_list || [];
 
-      if (kontrakList.length === 0) {
-        document.getElementById('info-kosong').classList.remove('d-none');
+      if (list.length === 0) {
+        document.getElementById('awal-kanan').innerHTML = `
+          <div class="text-center text-muted py-5">
+            <i class="bi bi-check-circle-fill fs-2 d-block mb-2 text-success opacity-50"></i>
+            <p style="font-size:13px;">Semua kegiatan ${nama} sudah di-BAST bulan ini.</p>
+          </div>`;
+        document.getElementById('awal-kanan').classList.remove('d-none');
         return;
       }
 
-      // Render semua kartu kontrak
-      const html = kontrakList.map(k => buatKartuKontrak(k)).join('');
-      const konten = document.getElementById('state-konten');
-      konten.innerHTML = html;
-      konten.classList.remove('d-none');
-      document.getElementById('info-hasil').classList.remove('d-none');
-      document.getElementById('card-ringkasan').classList.remove('d-none');
+      document.getElementById('info-petugas').innerHTML = `
+        <div class="d-flex gap-4" style="font-size:12px;">
+          <span class="text-muted">Kontrak: <strong>${list.length}</strong></span>
+          <span class="text-muted">Disarankan BAST bulan ini:
+            <strong class="text-primary">${list.reduce((a,k)=>a+k.kegiatan_saran.length,0)}</strong>
+          </span>
+          <span class="text-muted">Dari kontrak lain:
+            <strong>${list.reduce((a,k)=>a+k.kegiatan_lain.length,0)}</strong>
+          </span>
+        </div>`;
 
-      // Isi hidden field
-      document.getElementById('hid-petugas').value = pid;
-      document.getElementById('hid-bulan').value   = bulan;
-      document.getElementById('hid-tahun').value   = tahun;
+      document.getElementById('area-kegiatan').innerHTML = list.map(k => buatKartu(k, bulan, tahun)).join('');
 
-      // Set kontrak aktif awal (dari saran pertama)
-      for (const k of kontrakList) {
+      // Set kontrak aktif awal
+      for (const k of list) {
         if (k.kegiatan_saran.length > 0) {
           kontrakAktif = String(k.kontrak_id);
           document.getElementById('hid-kontrak').value = k.kontrak_id;
           break;
         }
       }
+      if (!kontrakAktif) {
+        kontrakAktif = String(list[0].kontrak_id);
+        document.getElementById('hid-kontrak').value = list[0].kontrak_id;
+      }
 
+      document.getElementById('konten-kanan').classList.remove('d-none');
       hitungRingkasan();
     })
-    .catch(e => {
-      document.getElementById('state-loading').classList.add('d-none');
-      document.getElementById('state-awal').classList.remove('d-none');
-      console.error(e);
+    .catch(() => {
+      document.getElementById('loading-kanan').classList.add('d-none');
+      document.getElementById('awal-kanan').classList.remove('d-none');
     });
-});
+}
 
-// Submit form
-document.getElementById('btn-simpan').addEventListener('click', () => {
-  if (!kontrakAktif) { alert('Pilih kegiatan terlebih dahulu.'); return; }
+// ── Kartu Kontrak & Baris Kegiatan ──────────────────────────────
+function buatKartu(k, bulan, tahun) {
+  const warningEdit = k.sudah_ada_bast
+    ? `<div class="alert alert-warning py-1 mb-2" style="font-size:11px;">
+         <i class="bi bi-pencil-square me-1"></i>
+         BAST bulan ini sudah ada — menyimpan akan <strong>mengganti</strong> pilihan sebelumnya.
+       </div>` : '';
+  const saranHtml = k.kegiatan_saran.map(g => buatBaris(g, k, true)).join('');
+  const lainHtml  = k.kegiatan_lain.map(g  => buatBaris(g, k, false)).join('');
 
-  // Isi kontrak_id
-  document.getElementById('hid-kontrak').value = kontrakAktif;
+  return `
+  <div class="border rounded mb-3 overflow-hidden">
+    <div style="background:#0A2560;padding:7px 12px;">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <span class="text-white fw-bold" style="font-size:12px;">SPK: ${k.nomor_spk}</span>
+          <span class="ms-2" style="color:rgba(255,255,255,.55);font-size:11px;">
+            ${k.bulan_spk} ${k.tahun_spk}
+          </span>
+        </div>
+        <div>
+          <button type="button" class="btn btn-sm btn-outline-light py-0 px-2"
+                  style="font-size:10px;"
+                  onclick="pSemua('${k.kontrak_id}',true)">✓ Semua</button>
+          <button type="button" class="btn btn-sm btn-outline-light py-0 px-2 ms-1"
+                  style="font-size:10px;"
+                  onclick="pSemua('${k.kontrak_id}',false)">✗ Batal</button>
+        </div>
+      </div>
+    </div>
+    <div class="p-2">
+      ${warningEdit}
+      ${k.kegiatan_saran.length>0?`
+        <div class="mb-1">
+          <span class="badge" style="background:#ECFDF5;color:#065F46;font-size:10px;">
+            <i class="bi bi-check-circle-fill me-1"></i>Disarankan BAST ${NM[+bulan]} ${tahun}
+          </span>
+        </div>${saranHtml}`:''}
+      ${k.kegiatan_lain.length>0?`
+        <div class="mt-2 mb-1">
+          <span class="badge" style="background:#F0F4FF;color:#1341A0;font-size:10px;">
+            <i class="bi bi-info-circle me-1"></i>Kegiatan lain dari kontrak ini
+          </span>
+        </div>${lainHtml}`:''}
+    </div>
+  </div>`;
+}
 
-  // Isi kegiatan_ids
-  const wrap = document.getElementById('hid-kegiatan-wrap');
+function buatBaris(keg, kontrak, isSaran) {
+  const bg  = isSaran ? '#F0FDF4' : '#FAFAFA';
+  const bdr = isSaran ? '#A7F3D0' : '#E2E8F4';
+  const chk = (isSaran && !keg.sudah_di_bast) ? 'checked' : '';
+  const dis = keg.sudah_di_bast ? 'disabled title="Sudah ada di BAST lain"' : '';
+
+  return `
+  <div class="d-flex align-items-start p-2 mb-1 rounded"
+       style="background:${bg};border:1px solid ${bdr};">
+    <input type="checkbox" class="form-check-input chk mt-1 me-2 flex-shrink-0"
+           data-kontrak="${kontrak.kontrak_id}" data-honor="${keg.honor_total}"
+           value="${keg.id}" id="chk-${keg.id}" ${chk} ${dis}
+           onchange="onChk(this,'${kontrak.kontrak_id}')">
+    <label class="form-check-label w-100" for="chk-${keg.id}"
+           style="cursor:pointer;${keg.sudah_di_bast?'opacity:.55;':''}">
+      <div class="d-flex justify-content-between">
+        <div>
+          <span class="fw-medium" style="font-size:12.5px;">${keg.nama_kegiatan}</span>
+          ${keg.sudah_di_bast?'<span class="badge bg-secondary ms-1" style="font-size:9px;">Sudah di BAST lain</span>':''}
+          <div style="font-size:11px;color:#6B7A99;margin-top:2px;">
+            <span class="badge" style="background:#EEF2FF;color:#1341A0;font-size:10px;">${keg.fungsi}</span>
+            s.d ${keg.tgl_selesai}
+            ${!isSaran&&keg.bulan_bast_saran?`<span style="font-size:10px;">(disarankan BAST ${keg.bulan_bast_saran})</span>`:''}
+          </div>
+        </div>
+        <div class="fw-bold text-primary ms-2" style="font-size:12px;">${fmtRp(keg.honor_total)}</div>
+      </div>
+    </label>
+  </div>`;
+}
+
+function onChk(chk, kid) {
+  if (chk.checked) {
+    kontrakAktif = kid;
+    document.getElementById('hid-kontrak').value = kid;
+  }
+  hitungRingkasan();
+}
+
+function pSemua(kid, pilih) {
+  document.querySelectorAll(`.chk[data-kontrak="${kid}"]:not([disabled])`)
+    .forEach(c => { c.checked = pilih; });
+  if (pilih) {
+    kontrakAktif = kid;
+    document.getElementById('hid-kontrak').value = kid;
+  }
+  hitungRingkasan();
+}
+
+// ── Hitung Ringkasan & SBML ──────────────────────────────────────
+function hitungRingkasan() {
+  let jml=0, total=0;
+  document.querySelectorAll('.chk:checked').forEach(c => {
+    jml++; total += parseFloat(c.dataset.honor||0);
+  });
+  document.getElementById('jml-dipilih').textContent = jml+' kegiatan';
+  document.getElementById('total-honor').textContent = fmtRp(total);
+  document.getElementById('btn-simpan').disabled = jml===0;
+
+  const pct = Math.min(total/SBML*100, 100);
+  const bar = document.getElementById('bar-sbml');
+  bar.style.width      = pct+'%';
+  bar.style.background = total>SBML?'#DC2626':total>SBML*.8?'#D97706':'#1341A0';
+
+  if (jml===0) {
+    document.getElementById('alert-sbml').classList.add('d-none');
+    document.getElementById('alert-aman').classList.add('d-none');
+  } else if (total>SBML) {
+    document.getElementById('lbl-total-sbml').textContent   = fmtRp(total);
+    document.getElementById('lbl-selisih').textContent      = fmtRp(total-SBML);
+    document.getElementById('alert-sbml').classList.remove('d-none');
+    document.getElementById('alert-aman').classList.add('d-none');
+  } else {
+    document.getElementById('alert-sbml').classList.add('d-none');
+    document.getElementById('alert-aman').classList.remove('d-none');
+  }
+}
+
+function resetRingkasan() {
+  document.getElementById('jml-dipilih').textContent  = '0';
+  document.getElementById('total-honor').textContent  = fmtRp(0);
+  document.getElementById('btn-simpan').disabled      = true;
+  document.getElementById('bar-sbml').style.width     = '0%';
+  document.getElementById('alert-sbml').classList.add('d-none');
+  document.getElementById('alert-aman').classList.add('d-none');
+}
+
+function resetKanan() {
+  document.getElementById('awal-kanan').classList.remove('d-none');
+  document.getElementById('loading-kanan').classList.add('d-none');
+  document.getElementById('konten-kanan').classList.add('d-none');
+  document.getElementById('hdr-kanan').innerHTML = `
+    <h6 class="mb-0 fw-semibold text-muted" style="font-size:13px;">
+      <i class="bi bi-arrow-left me-2 opacity-50"></i>
+      Pilih petugas dari daftar untuk mulai entri BAST
+    </h6>`;
+  resetRingkasan();
+}
+
+// ── Simpan ──────────────────────────────────────────────────────
+function simpanBAST() {
+  const wrap = document.getElementById('hid-keg-wrap');
   wrap.innerHTML = '';
-  document.querySelectorAll('.chk-kegiatan:checked').forEach(chk => {
+  document.querySelectorAll('.chk:checked').forEach(chk => {
     const inp = document.createElement('input');
-    inp.type = 'hidden';
-    inp.name = 'kegiatan_ids';
-    inp.value = chk.value;
+    inp.type='hidden'; inp.name='kegiatan_ids'; inp.value=chk.value;
     wrap.appendChild(inp);
   });
+  document.getElementById('form-bast').submit();
+}
 
-  document.getElementById('form-submit').submit();
-});
+// ── Init ────────────────────────────────────────────────────────
+document.getElementById('btn-muat').addEventListener('click', muatDaftar);
+muatDaftar();  // auto-muat saat halaman dibuka
 </script>
 {% endblock %}

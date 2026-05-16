@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% block title %}Generate BAST Massal{% endblock %}
+{% block page_title %}Generate BAST Massal{% endblock %}
+
+{% block content %}
+{% set nm = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] %}
+
+<div class="row justify-content-center">
+  <div class="col-md-8">
+
+    <div class="alert alert-info mb-4" style="font-size:13px;">
+      <i class="bi bi-lightning-fill me-2"></i>
+      <strong>Generate BAST Massal</strong> — buat BAST sekaligus untuk semua petugas
+      yang memiliki kegiatan di bulan pencairan yang dipilih.
+      Nomor BAST akan langsung di-assign secara berurutan.
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h6 class="mb-0 fw-semibold">
+          <i class="bi bi-file-earmark-check-fill me-2 text-success"></i>
+          Pilih Bulan Pencairan BAST
+        </h6>
+      </div>
+      <div class="card-body">
+        <form method="POST">
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label">Bulan Pencairan <span class="text-danger">*</span></label>
+              <select name="bulan_bast" class="form-select" required>
+                <option value="">— Pilih Bulan —</option>
+                {% for i in range(1,13) %}
+                <option value="{{ i }}" {{ 'selected' if i==bulan }}>{{ nm[i] }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Tahun <span class="text-danger">*</span></label>
+              <input type="number" name="tahun_bast" class="form-control"
+                     value="{{ tahun }}" min="2024" max="2035" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Fungsi</label>
+              {% if session.get('user_role') == 'admin_fungsi' %}
+                <input type="text" class="form-control" value="{{ fungsi }}" readonly>
+                <input type="hidden" name="fungsi" value="{{ fungsi }}">
+              {% else %}
+                <select name="fungsi" class="form-select">
+                  <option value="">— Semua Fungsi —</option>
+                  {% for f in fungsi_list %}
+                  <option value="{{ f }}" {{ 'selected' if f==fungsi }}>{{ f }}</option>
+                  {% endfor %}
+                </select>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Penjelasan proses -->
+          <div class="p-3 rounded mb-3"
+               style="background:#F0F4FF;border:1px solid #C7D7F5;font-size:12.5px;">
+            <div class="fw-semibold mb-2" style="color:#1341A0;">
+              <i class="bi bi-info-circle me-1"></i>Yang akan dilakukan sistem:
+            </div>
+            <ul class="mb-0" style="padding-left:18px;line-height:1.8;">
+              <li>Mencari semua kegiatan yang <strong>bulan pencairannya</strong> = bulan yang dipilih</li>
+              <li>Mengelompokkan per petugas dan membuat BAST otomatis</li>
+              <li>Mengassign nomor BAST berurutan sesuai waktu entri kontrak</li>
+              <li>Menghitung fungsi dominan dari kegiatan yang masuk BAST</li>
+              <li>Petugas yang sudah punya BAST bulan ini <strong>diperbarui</strong> (tidak dibuat ulang)</li>
+              <li>Warning muncul jika ada total honor yang melebihi SBML Rp 3.600.000</li>
+            </ul>
+          </div>
+
+          <div class="alert alert-warning py-2" style="font-size:12.5px;">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            Pastikan seluruh <strong>Entri Kontrak</strong> untuk bulan ini sudah lengkap sebelum
+            melakukan Generate Massal.
+          </div>
+
+          <div class="d-flex gap-2 justify-content-end mt-3">
+            <a href="{{ url_for('main.daftar_bast') }}"
+               class="btn btn-outline-secondary">Batal</a>
+            <button type="submit" class="btn btn-bps"
+                    onclick="return confirm('Generate BAST massal untuk semua petugas bulan yang dipilih?')">
+              <i class="bi bi-lightning-fill me-1"></i>Generate BAST Massal
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

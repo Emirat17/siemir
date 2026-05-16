@@ -1,0 +1,156 @@
+{% extends 'base.html' %}
+{% block title %}Generate & Merge BAST{% endblock %}
+{% block page_title %}Generate & Merge Dokumen BAST{% endblock %}
+
+{% block content %}
+{% set nm = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] %}
+
+<!-- Tab navigasi -->
+<ul class="nav nav-tabs mb-4">
+  <li class="nav-item">
+    <a class="nav-link" href="{{ url_for('main.generate_spk_bulanan') }}">
+      <i class="bi bi-file-earmark-text me-1"></i>Generate SPK
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link active fw-semibold" href="{{ url_for('main.generate_bast_bulanan') }}">
+      <i class="bi bi-file-earmark-check me-1"></i>Generate BAST
+    </a>
+  </li>
+</ul>
+
+<div class="alert alert-success py-2 mb-3" style="font-size:12.5px;">
+  <i class="bi bi-info-circle me-2"></i>
+  Halaman ini menampilkan dokumen <strong>BAST</strong> berdasarkan
+  <strong>bulan pencairan (bulan BAST)</strong>, bukan bulan SPK.
+  Dokumen BAST hanya muncul setelah <strong>Entri BAST</strong> dilakukan.
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <form method="GET" class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label">Bulan Pencairan (BAST)</label>
+        <select name="bulan" class="form-select">
+          <option value="">— Pilih Bulan —</option>
+          {% for i in range(1,13) %}
+          <option value="{{ i }}" {{ 'selected' if bulan==i }}>{{ nm[i] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Tahun</label>
+        <input type="number" name="tahun" class="form-control" value="{{ tahun or 2026 }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Fungsi</label>
+        <select name="fungsi" class="form-select">
+          <option value="">— Semua Fungsi —</option>
+          {% for f in fungsi_list %}
+          <option value="{{ f }}" {{ 'selected' if fungsi==f }}>{{ f }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-bps">
+          <i class="bi bi-search me-1"></i>Tampilkan
+        </button>
+      </div>
+      {% if bulan and tahun and bast_list %}
+      <div class="col-auto ms-auto">
+        <a href="{{ url_for('main.merge_bast', bulan=bulan, tahun=tahun, fungsi=fungsi) }}"
+           class="btn btn-success">
+          <i class="bi bi-file-earmark-zip me-1"></i>
+          Merge BAST {{ nm[bulan] }} {{ tahun }}{% if fungsi %} — {{ fungsi }}{% endif %}
+        </a>
+      </div>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h6 class="mb-0 fw-semibold">
+      <i class="bi bi-file-earmark-check-fill me-2 text-success"></i>
+      Daftar BAST Pencairan {% if bulan and tahun %}— {{ nm[bulan] }} {{ tahun }}{% if fungsi %} · {{ fungsi }}{% endif %}{% endif %}
+      {% if bast_list %}
+      <span class="badge bg-success bg-opacity-10 text-success ms-1">{{ bast_list|length }}</span>
+      {% endif %}
+    </h6>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0" style="font-size:13px;">
+      <thead>
+        <tr>
+          <th class="px-3">Nama Petugas</th>
+          <th>Nomor BAST</th>
+          <th>Nomor SPK Asal</th>
+          <th>Bulan SPK Asal</th>
+          <th>Jml Kegiatan</th>
+          <th>Total Honor</th>
+          <th>Tgl BAST</th>
+          <th>Unduh BAST</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in bast_list %}
+        <tr>
+          <td class="px-3 fw-medium">{{ b.kontrak.petugas.nama }}</td>
+          <td style="font-size:12px;">{{ b.nomor_bast or '—' }}</td>
+          <td style="font-size:12px;" class="text-muted">{{ b.kontrak.nomor_spk }}</td>
+          <td>
+            <span class="badge" style="background:#F0F4FF;color:#1341A0;font-size:11px;">
+              {{ nm[b.kontrak.bulan] }} {{ b.kontrak.tahun }}
+            </span>
+          </td>
+          <td class="text-center">{{ b.kegiatan_list|length }}</td>
+          <td class="fw-medium text-primary">
+            Rp {{ '{:,.0f}'.format(b.total_honor) }}
+            {% if b.total_honor > 3600000 %}
+            <span class="badge bg-danger bg-opacity-15 text-danger ms-1"
+                  style="font-size:10px;">⚠ SBML</span>
+            {% endif %}
+          </td>
+          <td style="font-size:12px;">
+            {{ b.tanggal_bast.strftime('%d %b %Y') if b.tanggal_bast else '—' }}
+          </td>
+          <td>
+            <a href="{{ url_for('main.generate_bast_doc', id=b.id) }}"
+               class="btn btn-bps btn-sm">
+              <i class="bi bi-file-earmark-word me-1"></i>Unduh BAST
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="8" class="text-center text-muted py-5">
+            <i class="bi bi-file-earmark-x fs-2 d-block mb-2 opacity-25"></i>
+            {% if bulan and tahun %}
+            Tidak ada BAST untuk pencairan {{ nm[bulan] }} {{ tahun }}.
+            <div class="mt-1" style="font-size:12px;">
+              Pastikan <a href="{{ url_for('main.entri_bast') }}">Entri BAST</a>
+              sudah dilakukan untuk bulan ini.
+            </div>
+            {% else %}
+            Pilih bulan dan tahun pencairan untuk menampilkan daftar BAST.
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      {% if bast_list %}
+      <tfoot style="background:#F7F9FD;">
+        <tr>
+          <td colspan="5" class="text-end fw-bold px-3">Total Honor Dicairkan</td>
+          <td class="fw-bold text-primary">
+            Rp {{ '{:,.0f}'.format(bast_list|sum(attribute='total_honor')) }}
+          </td>
+          <td colspan="2"></td>
+        </tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+</div>
+{% endblock %}

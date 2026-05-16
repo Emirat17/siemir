@@ -101,12 +101,40 @@
       </div>
     </div>
 
+    <!-- Import Excel -->
+    <div class="card mb-3">
+      <div class="card-header" style="background:#0A2560;border-radius:var(--radius) var(--radius) 0 0;">
+        <h6 class="mb-0 text-white" style="font-size:12px;">
+          <i class="bi bi-file-earmark-excel me-2"></i>Import Massal via Excel
+        </h6>
+      </div>
+      <div class="card-body" style="font-size:12.5px;">
+        <p class="text-muted mb-2">Upload file Excel untuk input banyak kontrak sekaligus.</p>
+        <div class="d-flex gap-2">
+          <a href="{{ url_for('main.download_template', jenis='kontrak') }}"
+             class="btn btn-outline-secondary btn-sm flex-grow-1">
+            <i class="bi bi-download me-1"></i>Template Excel
+          </a>
+          <button type="button" class="btn btn-outline-success btn-sm flex-grow-1"
+                  data-bs-toggle="modal" data-bs-target="#modalUploadKon">
+            <i class="bi bi-upload me-1"></i>Import Excel
+          </button>
+        </div>
+        <div class="mt-2 p-2 rounded" style="background:#FEF3C7;font-size:11px;color:#92400E;">
+          <i class="bi bi-exclamation-triangle me-1"></i>
+          Pastikan <strong>Entri Kegiatan</strong> sudah diisi lebih dulu
+          untuk fungsi & bulan yang akan diupload.
+        </div>
+      </div>
+    </div>
+
     <!-- Ganti Rugi & Ringkasan -->
     <div class="card">
       <div class="card-body">
-        <div class="mb-3">
-          <label class="form-label">Tambahan Ganti Rugi (Rp)</label>
-          <input type="number" name="total_ganti_rugi" class="form-control" value="0" min="0">
+        <div class="alert alert-secondary py-2 mb-2" style="font-size:12px;">
+          <i class="bi bi-info-circle me-1"></i>
+          <strong>Ganti Rugi</strong> dihitung otomatis = Total Honor kontrak.
+          Dapat disesuaikan melalui menu <em>Edit Kontrak</em> jika diperlukan.
         </div>
         <div class="border-top pt-3">
           <div class="text-muted mb-1" style="font-size:12px;">Total Honor (form ini)</div>
@@ -191,7 +219,7 @@ function hitungTotal() {
   let total = 0;
   document.querySelectorAll('#tbody tr').forEach(tr => {
     const vol  = parseFloat(tr.querySelector('.inp-vol')?.value  || 0);
-    const hsat = parseFloat(tr.querySelector('[name="honor_satuan"]')?.value || 0);
+    const hsat = parseFloat(tr.querySelector('.hid-hsat')?.value || 0);
     const htot = vol * hsat;
     const disp = tr.querySelector('.disp-htot');
     const inp  = tr.querySelector('.inp-htot');
@@ -238,14 +266,15 @@ function isiDropdown(sel) {
   }
   sel.innerHTML = '<option value="">— Pilih Kegiatan —</option>' +
     cachedKegiatan.map(k =>
-      `<option value="${k.id}"
+      `<option value="${k.nama_kegiatan}"
+        data-id="${k.id}"
         data-tgl-mulai="${k.tgl_mulai}"
         data-tgl-selesai="${k.tgl_selesai}"
         data-satuan="${k.satuan}"
         data-vol="${k.volume_default}"
         data-hsat="${k.honor_satuan}"
         data-akun="${k.mata_akun}"
-        ${curVal == k.id ? 'selected' : ''}>${k.nama_kegiatan}</option>`
+        ${curVal == k.id || curVal == k.nama_kegiatan ? 'selected' : ''}>${k.nama_kegiatan}</option>`
     ).join('');
 }
 
@@ -266,20 +295,23 @@ function buatBaris() {
              value="1" min="1" style="width:70px;" required>
     </td>
     <td>
-      <input type="text" name="satuan" class="form-control form-control-sm"
-             readonly style="background:#f8fafc;min-width:80px;">
+      <input type="hidden" name="satuan" class="hid-satuan" value="">
+      <span class="disp-satuan form-control form-control-sm"
+            style="background:#f8fafc;min-width:80px;font-size:12px;color:#6B7A99;">—</span>
     </td>
     <td>
-      <input type="number" name="honor_satuan" class="form-control form-control-sm"
-             value="0" readonly style="background:#f8fafc;" required>
+      <input type="hidden" name="honor_satuan" class="hid-hsat" value="0">
+      <span class="disp-hsat form-control form-control-sm"
+            style="background:#f8fafc;font-size:12px;color:#6B7A99;">—</span>
     </td>
     <td>
       <input type="hidden" name="honor_total" class="inp-htot" value="0">
       <span class="disp-htot text-muted fw-medium">Rp 0</span>
     </td>
     <td>
-      <input type="text" name="mata_akun" class="form-control form-control-sm"
-             readonly style="background:#f8fafc;">
+      <input type="hidden" name="mata_akun" class="hid-akun" value="">
+      <span class="disp-akun form-control form-control-sm"
+            style="background:#f8fafc;font-size:12px;color:#6B7A99;">—</span>
     </td>
     <td>
       <button type="button" class="btn btn-outline-danger btn-sm btn-hapus">
@@ -293,13 +325,17 @@ function buatBaris() {
   sel.addEventListener('change', function() {
     const opt = this.options[this.selectedIndex];
     if (!opt || !opt.value) return;
-    // Isi field otomatis dari data kegiatan
+    // Isi hidden fields (yang dikirim ke server)
     tr.querySelector('.inp-tgl-mulai').value   = opt.dataset.tglMulai   || '';
     tr.querySelector('.inp-tgl-selesai').value = opt.dataset.tglSelesai || '';
     tr.querySelector('.inp-vol').value          = opt.dataset.vol        || 1;
-    tr.querySelector('[name="satuan"]').value   = opt.dataset.satuan     || '';
-    tr.querySelector('[name="honor_satuan"]').value = opt.dataset.hsat   || 0;
-    tr.querySelector('[name="mata_akun"]').value    = opt.dataset.akun   || '';
+    tr.querySelector('.hid-satuan').value       = opt.dataset.satuan     || '';
+    tr.querySelector('.hid-hsat').value         = opt.dataset.hsat       || 0;
+    tr.querySelector('.hid-akun').value         = opt.dataset.akun       || '';
+    // Isi tampilan span (display only)
+    tr.querySelector('.disp-satuan').textContent = opt.dataset.satuan || '—';
+    tr.querySelector('.disp-hsat').textContent   = 'Rp ' + parseFloat(opt.dataset.hsat || 0).toLocaleString('id-ID');
+    tr.querySelector('.disp-akun').textContent   = opt.dataset.akun   || '—';
     hitungTotal();
   });
 
@@ -366,7 +402,7 @@ function cekKontrak() {
 function hitungSemuaSebelumSubmit() {
   document.querySelectorAll('#tbody tr').forEach(tr => {
     const vol  = parseFloat(tr.querySelector('.inp-vol')?.value  || 0);
-    const hsat = parseFloat(tr.querySelector('[name="honor_satuan"]')?.value || 0);
+    const hsat = parseFloat(tr.querySelector('.hid-hsat')?.value || 0);
     const inp  = tr.querySelector('.inp-htot');
     if (inp) inp.value = vol * hsat;
   });
@@ -387,4 +423,57 @@ document.getElementById('btn-tambah').addEventListener('click', buatBaris);
 previewTglSurat();
 buatBaris();
 </script>
+
+<!-- Modal Upload Excel Kontrak -->
+<div class="modal fade" id="modalUploadKon" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#0A2560;">
+        <h5 class="modal-title text-white">
+          <i class="bi bi-upload me-2"></i>Import Kontrak dari Excel
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{{ url_for('main.upload_kontrak') }}"
+            enctype="multipart/form-data">
+        <div class="modal-body">
+          <div class="alert alert-info py-2 mb-3" style="font-size:12px;">
+            <i class="bi bi-info-circle me-1"></i>
+            Unduh template terlebih dahulu, isi data, lalu upload.
+            <a href="{{ url_for('main.download_template', jenis='kontrak') }}"
+               class="alert-link fw-bold">Unduh Template Excel Entri Kontrak</a>
+          </div>
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label fw-medium" style="font-size:13px;">
+                File Excel (.xlsx) <span class="text-danger">*</span>
+              </label>
+              <input type="file" name="file_excel" class="form-control"
+                     accept=".xlsx" required>
+            </div>
+          </div>
+          <div class="mt-3 p-3 rounded" style="background:#F0F4FF;font-size:12px;">
+            <strong style="color:#1341A0;">Ketentuan Upload:</strong>
+            <ul class="mb-0 mt-1" style="padding-left:18px;">
+              <li>Satu baris = satu kegiatan untuk satu petugas</li>
+              <li>Nama petugas harus <strong>persis sama</strong> dengan yang ada di Data Petugas</li>
+              <li>Nama kegiatan harus <strong>persis sama</strong> dengan yang ada di Entri Kegiatan</li>
+              <li>Jika honor/satuan dikosongkan, diambil dari master Entri Kegiatan</li>
+              <li>Kegiatan dari fungsi berbeda untuk petugas yang sama akan digabung otomatis</li>
+              <li>Duplikat dilewati, sistem melaporkan di hasil import</li>
+              <li>Batas SBML Rp 3.600.000/mitra/bulan — peringatan ditampilkan jika terlampaui</li>
+            </ul>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm"
+                  data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-bps">
+            <i class="bi bi-upload me-1"></i>Upload & Proses
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 {% endblock %}

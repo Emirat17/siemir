@@ -16,8 +16,9 @@ with app.app_context():
     User.__table__.drop(db.engine, checkfirst=True)
     db.create_all()
 
-    db.session.add(NomorUrut(jenis='SPK',  terakhir=148))
-    db.session.add(NomorUrut(jenis='BAST', terakhir=148))
+    # Counter nomor SPK/BAST — dimulai dari 0 (kontrak pertama akan dapat nomor 1)
+    db.session.add(NomorUrut(jenis='SPK',  terakhir=0))
+    db.session.add(NomorUrut(jenis='BAST', terakhir=0))
     db.session.commit()
 
     print("✅ Database diperbarui.")

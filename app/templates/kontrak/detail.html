@@ -18,9 +18,6 @@
   <a href="{{ url_for('main.generate_spk', id=kontrak.id) }}" class="btn btn-bps btn-sm">
     <i class="bi bi-file-word me-1"></i>Unduh SPK (.docx)
   </a>
-  <a href="{{ url_for('main.generate_bast', id=kontrak.id) }}" class="btn btn-outline-primary btn-sm">
-    <i class="bi bi-file-earmark-word me-1"></i>Unduh BAST (.docx)
-  </a>
 </div>
 
 <div class="row g-3">
@@ -40,9 +37,7 @@
 
         <div class="alert alert-success py-2 mb-3" style="font-size:12px;">
           <i class="bi bi-hash me-1"></i>
-          <strong>SPK:</strong> {{ kontrak.nomor_spk }}<br>
-          <i class="bi bi-hash me-1"></i>
-          <strong>BAST:</strong> {{ kontrak.nomor_bast }}
+          <strong>SPK:</strong> {{ kontrak.nomor_spk }}
         </div>
 
         {{ baris('Fungsi Dominan', (kontrak.nama_fungsi or '-') ~ ' (' ~ (kontrak.kode_fungsi or '-') ~ ')') }}

@@ -1,25 +1,25 @@
 {% extends 'base.html' %}
 {% block title %}Rekap Honor Mitra{% endblock %}
-{% block page_title %}Rekap Honor Mitra per Bulan{% endblock %}
+{% block page_title %}Rekap Honor Mitra per Bulan Pencairan{% endblock %}
+
 {% block content %}
-{% set nama_bulan = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] %}
+{% set nm = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] %}
 
 <div class="card mb-4">
   <div class="card-body">
     <form method="GET" class="row g-3 align-items-end">
       <div class="col-md-3">
-        <label class="form-label">Bulan</label>
+        <label class="form-label">Bulan Pencairan (BAST)</label>
         <select name="bulan" class="form-select">
-          <option value="">— Semua Bulan —</option>
+          <option value="">— Pilih Bulan —</option>
           {% for i in range(1,13) %}
-          <option value="{{ i }}" {{ 'selected' if bulan==i }}>{{ nama_bulan[i] }}</option>
+          <option value="{{ i }}" {{ 'selected' if bulan==i }}>{{ nm[i] }}</option>
           {% endfor %}
         </select>
       </div>
       <div class="col-md-2">
         <label class="form-label">Tahun</label>
-        <input type="number" name="tahun" class="form-control"
-               value="{{ tahun or 2026 }}">
+        <input type="number" name="tahun" class="form-control" value="{{ tahun or 2026 }}">
       </div>
       <div class="col-md-2">
         <button type="submit" class="btn btn-bps w-100">
@@ -29,8 +29,9 @@
       {% if bulan and tahun %}
       <div class="col-auto ms-auto align-self-end">
         <span class="badge" style="background:#1341A0;font-size:13px;padding:8px 16px;">
-          {{ kontrak_list|length }} Mitra &nbsp;|&nbsp;
-          Total: Rp {{ '{:,.0f}'.format(kontrak_list|sum(attribute='total_honor')) }}
+          BAST {{ nm[bulan] }} {{ tahun }} &nbsp;|&nbsp;
+          {{ rekap_list|length }} mitra &nbsp;|&nbsp;
+          Total: Rp {{ '{:,.0f}'.format(rekap_list|sum(attribute='total_honor')) }}
         </span>
       </div>
       {% endif %}
@@ -39,57 +40,104 @@
 </div>
 
 {% if bulan and tahun %}
+
+<div class="alert alert-info py-2 mb-3" style="font-size:12.5px;">
+  <i class="bi bi-info-circle me-2"></i>
+  Rekap honor ditampilkan berdasarkan <strong>bulan pencairan BAST</strong>, bukan bulan SPK.
+  Mitra yang kegiatannya selesai di bulan berbeda akan muncul di bulan BAST masing-masing.
+</div>
+
 <div class="card">
-  <div class="card-header d-flex justify-content-between align-items-center">
-    <h6>Rekap Honor — {{ nama_bulan[bulan] }} {{ tahun }}</h6>
+  <div class="card-header">
+    <h6 class="mb-0 fw-semibold">
+      <i class="bi bi-cash-stack me-2 text-primary"></i>
+      Rekap Honor — BAST {{ nm[bulan] }} {{ tahun }}
+    </h6>
   </div>
   <div class="card-body p-0">
     <div class="table-responsive">
-      <table class="table table-hover mb-0">
+      <table id="tbl-rekap" class="table table-hover mb-0" style="font-size:13px;">
         <thead>
           <tr>
             <th class="px-3" style="width:40px;">No</th>
-            <th>Nama Mitra</th>
-            <th>Kecamatan</th>
-            <th>Fungsi Dominan</th>
-            <th>Nomor SPK</th>
-            <th>Jml Kegiatan</th>
-            <th>Ganti Rugi</th>
-            <th>Total Honor</th>
+            <th data-sort="text">Nama Mitra</th>
+            <th data-sort="text">Kecamatan</th>
+            <th data-sort="text">Fungsi</th>
+            <th data-sort="text">Nomor SPK</th>
+            <th data-sort="text">Bulan SPK</th>
+            <th data-sort="text">Nomor BAST</th>
+            <th data-sort="number">Jml Kegiatan</th>
+            <th data-sort="date">Tgl BAST</th>
+            <th data-sort="number">Total Honor</th>
           </tr>
         </thead>
         <tbody>
-          {% set total_gr = namespace(val=0) %}
-          {% set total_h  = namespace(val=0) %}
-          {% for k in kontrak_list %}
-          {% set total_gr.val = total_gr.val + k.total_ganti_rugi|float %}
-          {% set total_h.val  = total_h.val  + k.total_honor|float %}
+          {% for r in rekap_list %}
           <tr>
             <td class="px-3 text-muted">{{ loop.index }}</td>
-            <td class="fw-medium">{{ k.petugas.nama }}</td>
-            <td class="text-muted">{{ k.petugas.alamat_kecamatan or '—' }}</td>
+            <td class="fw-medium">{{ r.petugas_nama }}</td>
+            <td class="text-muted">{{ r.petugas_kecamatan }}</td>
             <td>
-              <span class="badge-fungsi">{{ k.nama_fungsi or '—' }}</span>
+              <span class="badge-fungsi">{{ r.nama_fungsi }}</span>
             </td>
-            <td style="font-size:12px;">{{ k.nomor_spk or '—' }}</td>
-            <td class="text-center">{{ k.kegiatan_list|length }}</td>
-            <td>Rp {{ '{:,.0f}'.format(k.total_ganti_rugi) }}</td>
-            <td class="fw-bold text-primary">Rp {{ '{:,.0f}'.format(k.total_honor) }}</td>
+            <td style="font-size:12px;">{{ r.nomor_spk }}</td>
+            <td style="font-size:12px;">
+              <span class="badge" style="background:#F0F4FF;color:#1341A0;font-size:11px;">
+                {{ r.bulan_spk }} {{ r.tahun_spk }}
+              </span>
+            </td>
+            <td style="font-size:12px;">{{ r.nomor_bast }}</td>
+            <td class="text-center" data-val="{{ r.jml_kegiatan }}">
+              {{ r.jml_kegiatan }}
+            </td>
+            <td style="font-size:12px;"
+                data-val="{{ r.tanggal_bast.strftime('%Y%m%d') if r.tanggal_bast else '0' }}">
+              {{ r.tanggal_bast.strftime('%d %b %Y') if r.tanggal_bast else '—' }}
+            </td>
+            <td class="fw-bold text-primary" data-val="{{ r.total_honor }}">
+              Rp {{ '{:,.0f}'.format(r.total_honor) }}
+              {% if r.total_honor > 3600000 %}
+              <span class="badge bg-danger bg-opacity-15 text-danger ms-1"
+                    style="font-size:10px;" title="Melebihi SBML Rp 3.600.000">
+                ⚠ SBML
+              </span>
+              {% endif %}
+            </td>
           </tr>
           {% else %}
-          <tr>
-            <td colspan="8" class="text-center text-muted py-5">
-              Tidak ada data untuk periode {{ nama_bulan[bulan] }} {{ tahun }}.
+          <tr class="no-sort">
+            <td colspan="10" class="text-center text-muted py-5">
+              <i class="bi bi-inbox fs-2 d-block mb-2 opacity-25"></i>
+              Tidak ada BAST yang dicairkan pada {{ nm[bulan] }} {{ tahun }}.
+              <div class="mt-1" style="font-size:12px;">
+                Pastikan Entri BAST sudah dibuat untuk bulan ini.
+              </div>
             </td>
           </tr>
           {% endfor %}
         </tbody>
-        {% if kontrak_list %}
+        {% if rekap_list %}
         <tfoot style="background:#F7F9FD;">
           <tr>
-            <td colspan="6" class="text-end fw-bold px-3">TOTAL</td>
-            <td class="fw-bold">Rp {{ '{:,.0f}'.format(total_gr.val) }}</td>
-            <td class="fw-bold text-primary">Rp {{ '{:,.0f}'.format(total_h.val) }}</td>
+            <td colspan="7" class="text-end fw-bold px-3">
+              TOTAL — BAST {{ nm[bulan] }} {{ tahun }}
+            </td>
+            <td class="text-center fw-bold">
+              {{ rekap_list|sum(attribute='jml_kegiatan') }}
+            </td>
+            <td></td>
+            <td class="fw-bold text-primary">
+              Rp {{ '{:,.0f}'.format(rekap_list|sum(attribute='total_honor')) }}
+              {% set n_sbml = namespace(count=0) %}
+              {% for r in rekap_list %}{% if r.total_honor > 3600000 %}{% set n_sbml.count = n_sbml.count + 1 %}{% endif %}{% endfor %}
+              {% if n_sbml.count > 0 %}
+              <div class="mt-1">
+                <span class="badge bg-danger bg-opacity-15 text-danger" style="font-size:10px;">
+                  ⚠ {{ n_sbml.count }} mitra melebihi SBML
+                </span>
+              </div>
+              {% endif %}
+            </td>
           </tr>
         </tfoot>
         {% endif %}
@@ -97,10 +145,62 @@
     </div>
   </div>
 </div>
+
+{% if rekap_list %}
+<div class="card mt-3">
+  <div class="card-header">
+    <h6 class="mb-0 fw-semibold">
+      <i class="bi bi-bar-chart me-2 text-success"></i>
+      Rekap per Fungsi — BAST {{ nm[bulan] }} {{ tahun }}
+    </h6>
+  </div>
+  <div class="card-body p-0">
+    <table class="table mb-0" style="font-size:13px;">
+      <thead>
+        <tr>
+          <th class="px-3">Fungsi</th>
+          <th>Jumlah Mitra</th>
+          <th>Total Honor Dicairkan</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set rekap_f = {} %}
+        {% for r in rekap_list %}
+          {% if r.nama_fungsi not in rekap_f %}
+            {% set _ = rekap_f.update({r.nama_fungsi: {'jml': 0, 'honor': 0}}) %}
+          {% endif %}
+          {% set _ = rekap_f[r.nama_fungsi].update({
+              'jml':   rekap_f[r.nama_fungsi].jml   + 1,
+              'honor': rekap_f[r.nama_fungsi].honor + r.total_honor
+          }) %}
+        {% endfor %}
+        {% for f, d in rekap_f.items() %}
+        <tr>
+          <td class="px-3 fw-medium">{{ f }}</td>
+          <td>{{ d.jml }} mitra</td>
+          <td class="fw-medium text-primary">Rp {{ '{:,.0f}'.format(d.honor) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 {% else %}
 <div class="text-center text-muted py-5">
   <i class="bi bi-cash-stack fs-1 d-block mb-3 opacity-25"></i>
-  Pilih bulan dan tahun untuk menampilkan rekap honor.
+  <p>Pilih bulan dan tahun pencairan untuk menampilkan rekap honor.</p>
+  <p style="font-size:12px;">
+    Data rekap diambil berdasarkan <strong>bulan BAST</strong> (bulan pencairan honor),
+    bukan bulan SPK.
+  </p>
 </div>
 {% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='sortable.js') }}"></script>
+<script>initSortableTable('tbl-rekap');</script>
 {% endblock %}

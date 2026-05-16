@@ -1,21 +1,43 @@
+"""
+config.py — Konfigurasi SIEMIR
+Otomatis pakai PostgreSQL jika DATABASE_URL tersedia (Railway),
+pakai SQLite jika tidak (lokal/development).
+"""
 import os
 
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-
 class Config:
-    # Ganti dengan string acak yang panjang untuk keamanan
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'ganti-dengan-kunci-rahasia-anda'
+    SECRET_KEY = os.environ.get('SECRET_KEY', 'siemir-bps-meranti-2026-dev-key')
 
-    # Database: Gunakan PostgreSQL di produksi, SQLite di lokal
-    database_url = os.environ.get('DATABASE_URL')
-    
-    if database_url:
-        # Fix PostgreSQL URL scheme (Railway uses postgres:// but SQLAlchemy needs postgresql://)
-        if database_url.startswith('postgres://'):
-            database_url = database_url.replace('postgres://', 'postgresql://', 1)
-        SQLALCHEMY_DATABASE_URI = database_url
+    # Database: Railway set DATABASE_URL otomatis saat add PostgreSQL plugin
+    DATABASE_URL = os.environ.get('DATABASE_URL', '')
+
+    if DATABASE_URL:
+        # Railway/PostgreSQL — ganti postgres:// ke postgresql:// (SQLAlchemy requirement)
+        if DATABASE_URL.startswith('postgres://'):
+            DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+        SQLALCHEMY_DATABASE_URI = DATABASE_URL
     else:
-        # SQLite untuk development
-        SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(BASE_DIR, 'database.db')
-    
+        # Lokal — pakai SQLite di folder instance/
+        basedir = os.path.abspath(os.path.dirname(__file__))
+        SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(basedir, 'instance', 'database.db')
+
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_pre_ping': True,
+        'pool_recycle': 300,
+    }
+
+    # Upload
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB
+
+class DevelopmentConfig(Config):
+    DEBUG = True
+
+class ProductionConfig(Config):
+    DEBUG = False
+
+config = {
+    'development': DevelopmentConfig,
+    'production':  ProductionConfig,
+    'default':     ProductionConfig,
+}

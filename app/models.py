@@ -95,6 +95,7 @@ class BAST(db.Model):
     tahun_bast      = db.Column(db.Integer, nullable=False)   # tahun pencairan
     tanggal_bast    = db.Column(db.Date)               # hari kerja pertama bulan_bast
     total_honor     = db.Column(db.Numeric(15, 2), default=0)
+    link_bast_ttd   = db.Column(db.Text, nullable=True)      # link dokumen BAST ttd
     dibuat          = db.Column(db.DateTime, default=datetime.utcnow)
 
     kontrak   = db.relationship('Kontrak', backref=db.backref('bast_list', lazy=True))
@@ -151,6 +152,7 @@ class DaftarKegiatan(db.Model):
     volume_default= db.Column(db.Integer, default=1)   # volume default per petugas
     honor_satuan  = db.Column(db.Numeric(15, 2), default=0)
     mata_akun     = db.Column(db.String(100), nullable=False)
+    bulan_pencairan = db.Column(db.Integer, nullable=True)  # bulan BAST otomatis
     dibuat        = db.Column(db.DateTime, default=datetime.utcnow)
 
     def __repr__(self): return f'<DaftarKegiatan {self.nama_kegiatan}>'
@@ -171,6 +173,7 @@ class Kontrak(db.Model):
     tahun              = db.Column(db.Integer, nullable=False)
     total_honor        = db.Column(db.Numeric(15, 2), default=0)
     total_ganti_rugi   = db.Column(db.Numeric(15, 2), default=0)
+    link_spk_ttd       = db.Column(db.Text, nullable=True)   # link dokumen SPK ttd
     dibuat             = db.Column(db.DateTime, default=datetime.utcnow)
     diperbarui         = db.Column(db.DateTime, onupdate=datetime.utcnow)
     kegiatan_list = db.relationship('Kegiatan', backref='kontrak', lazy=True,

@@ -61,8 +61,8 @@
             <div class="col-md-2">
               <label class="form-label fw-medium" style="font-size:13px;">Satuan</label>
               <select name="satuan" class="form-select">
-                {% for s in ['OH','Hari','Kali','Dokumen','Responden'] %}
-                <option {{ 'selected' if s == keg.satuan }}>{{ s }}</option>
+                {% for s in ['OH','Hari','Kali','Dokumen','Responden','Blok Sensus','SLS','EA','RUTA','Segmen'] %}
+                <option value="{{ s }}" {{ 'selected' if s == keg.satuan }}>{{ s }}</option>
                 {% endfor %}
               </select>
             </div>
