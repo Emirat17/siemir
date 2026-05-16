@@ -997,11 +997,16 @@ def generate_bast(id):
 @login_required
 @role_required('admin_kabupaten')
 def daftar_petugas():
-    page = request.args.get('page', 1, type=int)
-    pagination = Petugas.query.order_by(Petugas.nama).paginate(page=page, per_page=10, error_out=False)
+    page  = request.args.get('page', 1, type=int)
+    cari  = request.args.get('q', '').strip()
+    query = Petugas.query
+    if cari:
+        query = query.filter(Petugas.nama.ilike(f'%{cari}%'))
+    pagination = query.order_by(Petugas.nama).paginate(page=page, per_page=10, error_out=False)
     return render_template('petugas/daftar.html',
                            petugas_list=pagination.items,
-                           pagination=pagination)
+                           pagination=pagination,
+                           cari=cari)
 
 @main.route('/petugas/tambah', methods=['GET', 'POST'])
 @login_required
