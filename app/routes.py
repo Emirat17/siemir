@@ -997,8 +997,11 @@ def generate_bast(id):
 @login_required
 @role_required('admin_kabupaten')
 def daftar_petugas():
+    page = request.args.get('page', 1, type=int)
+    pagination = Petugas.query.order_by(Petugas.nama).paginate(page=page, per_page=10, error_out=False)
     return render_template('petugas/daftar.html',
-                           petugas_list=Petugas.query.order_by(Petugas.nama).all())
+                           petugas_list=pagination.items,
+                           pagination=pagination)
 
 @main.route('/petugas/tambah', methods=['GET', 'POST'])
 @login_required
