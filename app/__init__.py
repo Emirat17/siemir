@@ -1,3 +1,4 @@
+import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from config import Config
@@ -7,6 +8,14 @@ db = SQLAlchemy()
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
+
+    # Baca DATABASE_URL saat runtime agar Railway variable injection bekerja
+    db_url = os.environ.get('DATABASE_URL', '')
+    if db_url:
+        if db_url.startswith('postgres://'):
+            db_url = db_url.replace('postgres://', 'postgresql://', 1)
+        app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+
     db.init_app(app)
 
     from app.routes import main
