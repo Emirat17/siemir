@@ -171,12 +171,11 @@ def index():
         ).count()
 
         # Jumlah kegiatan yang seharusnya di-BAST bulan ini (pending)
-        # = kegiatan dengan bulan_pencairan = bulan_ini yang belum di-BASTKegiatan
+        # = kegiatan dengan tgl_selesai di bulan sebelumnya
+        bulan_selesai = bulan_ini - 1 if bulan_ini > 1 else 12
         jml_pending_bast = db.session.query(Kegiatan).join(Kontrak).filter(
-            Kontrak.nama_fungsi == fungsi
-        ).filter(
-            db.func.strftime('%m', Kegiatan.tgl_selesai) == f"{bulan_ini-1:02d}" if bulan_ini > 1
-            else db.func.strftime('%m', Kegiatan.tgl_selesai) == "12"
+            Kontrak.nama_fungsi == fungsi,
+            db.extract('month', Kegiatan.tgl_selesai) == bulan_selesai
         ).count()
 
         progress_fungsi.append({
