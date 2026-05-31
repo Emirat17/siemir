@@ -127,6 +127,21 @@ def cari_suffix_tersedia(nomor_dasar, kode_fungsi, tahun):
             return huruf
     return None
 
+def sort_key_nomor(nomor):
+    """Natural sort key untuk nomor SPK/BAST: (base_int, suffix).
+    'PK-107A/...' → (107, 'A'),  'BAST-11/...' → (11, ''),  None → (99999, '')
+    """
+    if not nomor:
+        return (99999, '')
+    try:
+        bagian = nomor.split('-')[1].split('/')[0]
+        m = re.match(r'^(\d+)([A-Za-z]*)$', bagian)
+        if m:
+            return (int(m.group(1)), m.group(2).upper())
+    except (IndexError, ValueError):
+        pass
+    return (99999, '')
+
 def next_nomor_global():
     """
     Ambil nomor berikutnya dari tabel NomorUrut.
@@ -1239,7 +1254,7 @@ def generate_spk_bulanan():
         q = Kontrak.query.filter_by(bulan=bulan, tahun=tahun)
         if fungsi:
             q = q.filter(Kontrak.nama_fungsi == fungsi)
-        kontrak_list = q.order_by(Kontrak.nomor_spk).all()
+        kontrak_list = sorted(q.all(), key=lambda k: sort_key_nomor(k.nomor_spk))
     return render_template('generate_spk_bulanan.html',
                            bulan=bulan, tahun=tahun, fungsi=fungsi,
                            kontrak_list=kontrak_list,
@@ -1262,7 +1277,7 @@ def generate_bast_bulanan():
         )
         if fungsi:
             q = q.filter(Kontrak.nama_fungsi == fungsi)
-        bast_list = q.order_by(BAST.nomor_bast).all()
+        bast_list = sorted(q.all(), key=lambda b: sort_key_nomor(b.nomor_bast))
     return render_template('generate_bast_bulanan.html',
                            bulan=bulan, tahun=tahun, fungsi=fungsi,
                            bast_list=bast_list,
@@ -1283,7 +1298,7 @@ def merge_spk():
     q = Kontrak.query.filter_by(bulan=bulan, tahun=tahun)
     if fungsi:
         q = q.filter(Kontrak.nama_fungsi == fungsi)
-    kontrak_list = q.order_by(Kontrak.nomor_spk).all()
+    kontrak_list = sorted(q.all(), key=lambda k: sort_key_nomor(k.nomor_spk))
 
     if not kontrak_list:
         flash('Tidak ada kontrak untuk filter yang dipilih.', 'warning')
@@ -1440,7 +1455,7 @@ def hasil_merge_bast():
     )
     if fungsi:
         q = q.filter(Kontrak.nama_fungsi == fungsi)
-    bast_list  = q.order_by(BAST.nomor_bast).all()
+    bast_list  = sorted(q.all(), key=lambda b: sort_key_nomor(b.nomor_bast))
     total_all  = sum(float(b.total_honor) for b in bast_list)
     n_sbml     = sum(1 for b in bast_list if float(b.total_honor) > SBML)
 
@@ -1491,8 +1506,8 @@ def rekap_honor():
 
     if bulan and tahun:
         bast_list = (BAST.query
-                     .filter_by(bulan_bast=bulan, tahun_bast=tahun)
-                     .order_by(BAST.nomor_bast).all())
+                     .filter_by(bulan_bast=bulan, tahun_bast=tahun).all())
+        bast_list = sorted(bast_list, key=lambda b: sort_key_nomor(b.nomor_bast))
         for bast in bast_list:
             kontrak = bast.kontrak
             rekap_list.append({
@@ -2091,7 +2106,7 @@ def daftar_bast():
          .filter(BAST.bulan_bast == bulan, BAST.tahun_bast == tahun))
     if fungsi:
         q = q.filter(Kontrak.nama_fungsi == fungsi)
-    bast_list = q.order_by(BAST.nomor_bast).all()
+    bast_list = sorted(q.all(), key=lambda b: sort_key_nomor(b.nomor_bast))
 
     return render_template('daftar_bast.html',
         bast_list=bast_list, bulan=bulan, tahun=tahun,

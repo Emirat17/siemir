@@ -59,6 +59,16 @@ function initSortableTable(tableId) {
           valA = parseFloat(valA.replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
           valB = parseFloat(valB.replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
           return sortAsc ? valA - valB : valB - valA;
+        } else if (tipe === 'spk') {
+          // Natural sort untuk nomor SPK/BAST: PK-2 < PK-11 < PK-107A < PK-107B
+          const parseSpk = s => {
+            const m = s.match(/[-](\d+)([A-Za-z]?)/);
+            return m ? [parseInt(m[1], 10), (m[2] || '').toUpperCase()] : [99999, ''];
+          };
+          const [nA, sA] = parseSpk(valA);
+          const [nB, sB] = parseSpk(valB);
+          if (nA !== nB) return sortAsc ? nA - nB : nB - nA;
+          return sortAsc ? sA.localeCompare(sB) : sB.localeCompare(sA);
         } else if (tipe === 'date') {
           // Format dd/mm/yyyy atau dd Mon yyyy
           const parseDate = s => {
