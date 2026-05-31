@@ -3,6 +3,7 @@ from app.auth import login_required, role_required, get_current_user
 from app import db
 from app.models import Petugas, Kontrak, Kegiatan, NomorUrut, DaftarKegiatan, BAST, BASTKegiatan, FUNGSI_KODE
 import os
+import re
 from datetime import date, timedelta
 import calendar
 import io
@@ -94,12 +95,36 @@ def renomor_semua_bast():
         db.session.add(NomorUrut(jenis='BAST', terakhir=len(semua_bast)))
 
 def ambil_nomor_urut(kontrak):
-    """Ambil nomor urut dari nomor SPK yang sudah ada."""
+    """Ambil nomor urut dari nomor SPK yang sudah ada. Mengembalikan None untuk SPK bersufiks (mis. 107A)."""
     if kontrak.nomor_spk:
         try:
             return int(kontrak.nomor_spk.split('-')[1].split('/')[0])
         except (IndexError, ValueError):
             pass
+    return None
+
+def parse_nomor_bagian(nomor_spk):
+    """Ekstrak (base_int, suffix) dari nomor SPK.
+    'PK-107A/...' -> (107, 'A'),  'PK-108/...' -> (108, ''),  invalid -> (None, '')
+    """
+    if not nomor_spk:
+        return None, ''
+    try:
+        bagian = nomor_spk.split('-')[1].split('/')[0]
+        m = re.match(r'^(\d+)([A-Za-z]*)$', bagian)
+        if m:
+            return int(m.group(1)), m.group(2).upper()
+    except (IndexError, ValueError):
+        pass
+    return None, ''
+
+def cari_suffix_tersedia(nomor_dasar, kode_fungsi, tahun):
+    """Cari huruf sufiks pertama (A, B, C...) yang belum terpakai untuk nomor_dasar."""
+    for huruf in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ':
+        if not Kontrak.query.filter_by(
+            nomor_spk=f"PK-{nomor_dasar}{huruf}/{kode_fungsi}/VS.330/{tahun}"
+        ).first():
+            return huruf
     return None
 
 def next_nomor_global():
@@ -118,20 +143,18 @@ def next_nomor_global():
 
 def renomor_semua(mulai_dari=1):
     """
-    Renomor ulang SEMUA kontrak secara global berdasarkan urutan id (waktu dibuat).
-    Paramater mulai_dari diabaikan — selalu renomor dari 1 agar konsisten
-    dengan logika renomor_semua_bast.
-    Counter NomorUrut disesuaikan ke jumlah kontrak yang tersisa.
+    Renomor ulang kontrak sequential (tanpa sufiks) berdasarkan urutan id.
+    SPK bersufiks huruf (mis. PK-107A) dilewati dan nomornya dipertahankan.
     """
     semua = Kontrak.query.order_by(Kontrak.id.asc()).all()
-    for i, k in enumerate(semua, 1):
+    sequential = [k for k in semua if ambil_nomor_urut(k) is not None]
+    for i, k in enumerate(sequential, 1):
         k.nomor_spk = buat_nomor_spk(i, k.kode_fungsi or '14.101', k.tahun)
-    # Sesuaikan counter
     rec = NomorUrut.query.filter_by(jenis='SPK').first()
     if rec:
-        rec.terakhir = len(semua)
-    elif semua:
-        db.session.add(NomorUrut(jenis='SPK', terakhir=len(semua)))
+        rec.terakhir = len(sequential)
+    elif sequential:
+        db.session.add(NomorUrut(jenis='SPK', terakhir=len(sequential)))
 
 def update_nomor_fungsi(kontrak):
     """Update kode fungsi di nomor SPK/BAST jika fungsi dominan berubah."""
@@ -905,7 +928,69 @@ def edit_kontrak(id):
         db.session.commit()
         flash('Data kontrak berhasil diperbarui.', 'success')
         return redirect(url_for('main.detail_kontrak', id=kontrak.id))
-    return render_template('kontrak/form_edit.html', kontrak=kontrak, nama_bulan=NAMA_BULAN)
+    pos_lama = ambil_nomor_urut(kontrak)  # None jika SPK sudah bersufiks
+    return render_template('kontrak/form_edit.html', kontrak=kontrak,
+                           nama_bulan=NAMA_BULAN, pos_lama=pos_lama)
+
+@main.route('/kontrak/<int:id>/ubah-nomor', methods=['POST'])
+@login_required
+@role_required('admin_kabupaten', 'admin_fungsi')
+def ubah_nomor_spk(id):
+    kontrak = Kontrak.query.get_or_404(id)
+    nomor_dasar = request.form.get('nomor_dasar', type=int)
+    pos_lama    = ambil_nomor_urut(kontrak)
+
+    # Validasi dasar
+    if not nomor_dasar or nomor_dasar < 1:
+        flash('Masukkan nomor dasar yang valid.', 'danger')
+        return redirect(url_for('main.edit_kontrak', id=id))
+    if pos_lama is None:
+        flash('SPK ini sudah bersufiks huruf dan tidak dapat diubah lagi.', 'danger')
+        return redirect(url_for('main.edit_kontrak', id=id))
+    if nomor_dasar >= pos_lama:
+        flash(f'Nomor dasar harus lebih kecil dari nomor urut SPK saat ini ({pos_lama}).', 'danger')
+        return redirect(url_for('main.edit_kontrak', id=id))
+
+    # Cek nomor_dasar ada sebagai SPK sequential di database
+    spk_dasar = next(
+        (k for k in Kontrak.query.all()
+         if parse_nomor_bagian(k.nomor_spk) == (nomor_dasar, '')),
+        None
+    )
+    if not spk_dasar:
+        flash(f'SPK dengan nomor urut {nomor_dasar} tidak ditemukan di database.', 'danger')
+        return redirect(url_for('main.edit_kontrak', id=id))
+
+    # Cari sufiks yang tersedia (A, B, C, ...)
+    kode = kontrak.kode_fungsi or '14.101'
+    suffix = cari_suffix_tersedia(nomor_dasar, kode, kontrak.tahun)
+    if not suffix:
+        flash('Semua sufiks (A-Z) sudah terpakai untuk nomor ini.', 'danger')
+        return redirect(url_for('main.edit_kontrak', id=id))
+
+    # Ubah nomor SPK ini menjadi sufiks
+    kontrak.nomor_spk = f"PK-{nomor_dasar}{suffix}/{kode}/VS.330/{kontrak.tahun}"
+
+    # Geser semua SPK sequential dengan posisi > pos_lama turun 1
+    for k in Kontrak.query.all():
+        if k.id == kontrak.id:
+            continue
+        base, sfx = parse_nomor_bagian(k.nomor_spk)
+        if base is not None and sfx == '' and base > pos_lama:
+            k.nomor_spk = buat_nomor_spk(base - 1, k.kode_fungsi or '14.101', k.tahun)
+
+    # Kurangi counter NomorUrut
+    rec = NomorUrut.query.filter_by(jenis='SPK').first()
+    if rec and rec.terakhir > 0:
+        rec.terakhir -= 1
+
+    db.session.commit()
+    flash(
+        f'Nomor SPK berhasil diubah ke PK-{nomor_dasar}{suffix}/{kode}/VS.330/{kontrak.tahun}. '
+        f'SPK dengan nomor di atas {pos_lama} telah digeser otomatis.',
+        'success'
+    )
+    return redirect(url_for('main.detail_kontrak', id=id))
 
 @main.route('/kontrak/hapus/<int:id>', methods=['POST'])
 @login_required

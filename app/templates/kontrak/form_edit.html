@@ -29,6 +29,9 @@
             <div class="col-md-6">
               <span class="text-muted">Nomor SPK:</span>
               <strong class="ms-1">{{ kontrak.nomor_spk }}</strong>
+              {% if not pos_lama %}
+                <span class="badge bg-warning text-dark ms-1" style="font-size:10px;">bersufiks</span>
+              {% endif %}
             </div>
             <div class="col-md-6">
               <span class="text-muted">Tanggal Surat:</span>
@@ -75,4 +78,46 @@
     </div>
   </div>
 </div>
+
+{% if pos_lama %}
+<div class="row justify-content-center mt-3">
+  <div class="col-md-7">
+    <div class="card border-warning">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold text-warning">
+          <i class="bi bi-arrow-left-right me-2"></i>Ubah Nomor SPK ke Sufiks
+        </h6>
+      </div>
+      <div class="card-body">
+        <div class="alert alert-warning py-2" style="font-size:12px;">
+          <strong>Cara kerja:</strong> SPK ini (nomor urut <strong>{{ pos_lama }}</strong>) akan dijadikan sufiks dari nomor yang Anda masukkan.
+          Contoh: masukkan <strong>{{ pos_lama - 1 }}</strong> → nomor berubah jadi
+          <strong>PK-{{ pos_lama - 1 }}A/…</strong> (atau B, C… jika A sudah ada).
+          Semua SPK sequential dengan nomor &gt; {{ pos_lama }} otomatis <strong>mundur satu nomor</strong> untuk menutup celah.
+        </div>
+        <form method="POST" action="{{ url_for('main.ubah_nomor_spk', id=kontrak.id) }}"
+              onsubmit="return confirm('Yakin mengubah nomor SPK ini?\nSemua SPK dengan nomor di atas {{ pos_lama }} akan ikut berubah.')">
+          <div class="d-flex gap-2 align-items-end flex-wrap">
+            <div>
+              <label class="form-label fw-medium mb-1" style="font-size:13px;">Nomor Dasar Tujuan</label>
+              <div class="input-group" style="width:240px;">
+                <span class="input-group-text" style="font-size:13px;">PK-</span>
+                <input type="number" name="nomor_dasar" class="form-control" style="font-size:13px;"
+                       placeholder="{{ pos_lama - 1 }}" min="1" max="{{ pos_lama - 1 }}" required>
+                <span class="input-group-text text-warning fw-bold" style="font-size:13px;">A</span>
+              </div>
+              <div class="form-text">Nomor urut SPK yang sudah ada (lebih kecil dari {{ pos_lama }})</div>
+            </div>
+            <div class="pb-4">
+              <button type="submit" class="btn btn-warning btn-sm">
+                <i class="bi bi-arrow-left-right me-1"></i>Terapkan
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 {% endblock %}
