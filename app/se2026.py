@@ -31,7 +31,7 @@ def next_nomor(jenis_upper):
     return rec.terakhir
 
 def simpan_wilayah(kontrak_id, form):
-    for i in range(1, 4):
+    for i in range(1, 9):  # 8 baris sesuai template terbaru
         kec  = form.get(f'kode_kecamatan_{i}', '').strip()
         desa = form.get(f'kode_desa_{i}', '').strip()
         if kec or desa:
@@ -109,7 +109,7 @@ def tambah(jenis):
         nomor_manual = request.form.get('nomor_spk', '').strip()
         if not nomor_manual:
             n = next_nomor(jenis_upper)
-            nomor_manual = f'{jenis_upper}-{n:03d}/SE2026/2026'
+            nomor_manual = f'{n:03d}'   # hanya angka; format lengkap ada di template Word
 
         k = buat_kontrak_dari_form(jenis_upper, request.form, tgl, nomor_manual)
         db.session.add(k)
@@ -250,7 +250,7 @@ def import_excel(jenis):
         n = next_nomor(jenis_upper)
         k = KontrakSE2026(
             jenis=jenis_upper, nama=nama,
-            nomor_spk=f'{jenis_upper}-{n:03d}/SE2026/2026',
+            nomor_spk=f'{n:03d}',
             alamat=str(val(1, '')).strip(),
             tanggal_spk=tanggal_spk,
             total_honor=float(val(2)),
@@ -265,7 +265,7 @@ def import_excel(jenis):
         db.session.flush()
 
         if jenis_upper == 'PPL':
-            for i in range(3):
+            for i in range(8):  # 8 baris wilayah sesuai template terbaru
                 base = 9 + i * 4
                 kec  = str(val(base,   '')).strip()
                 desa = str(val(base+1, '')).strip()
@@ -331,12 +331,12 @@ def download_template(jenis):
         hdr(i, h)
 
     if jenis_upper == 'PPL':
-        for s in range(1, 4):
+        for s in range(1, 9):  # 8 wilayah
             base = 9 + (s-1)*4
-            for j, h in enumerate([f'Kec {s}', f'Kode Desa {s}',
-                                    f'Jml SLS {s}', f'Jml Keluarga {s}']):
+            for j, h in enumerate([f'Kode Kecamatan', f'Kode Desa',
+                                    f'Jml SLS', f'Jml Keluarga']):
                 hdr(base+j, f'Wilayah {s}\n{h}', fill=muda, font=f_biru)
-        contoh_extra = ['1410010', '1410010001', 5, 20, '', '', '', '', '', '', '', '']
+        contoh_extra = ['1410010', '1410010001', 5, 20] + [''] * 28
     else:
         for s in range(1, 9):
             base = 9 + (s-1)*4

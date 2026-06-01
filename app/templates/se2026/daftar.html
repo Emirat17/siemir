@@ -47,7 +47,11 @@
           {% for k in kontrak_list %}
           <tr>
             <td class="px-3 text-muted">{{ loop.index }}</td>
-            <td class="fw-medium font-monospace" style="font-size:11px;">{{ k.nomor_spk or '-' }}</td>
+            <td class="fw-medium font-monospace" style="font-size:11px;">
+              {% if k.nomor_spk %}
+                B-{{ k.nomor_spk }}/SPK-SE2026/1410/SS.330/2026
+              {% else %}-{% endif %}
+            </td>
             <td class="fw-medium">{{ k.nama }}</td>
             <td>{{ k.tanggal_spk.strftime('%d %b %Y') if k.tanggal_spk else '-' }}</td>
             <td class="text-end">

@@ -397,9 +397,9 @@ def generate_spk_se2026(data, template_path):
         '<<60% dari Jumlah Keluarga>>':  str(round(jml_kel   * 0.6)),
     }
 
-    # Wilayah kerja PPL (3 slot)
+    # Wilayah kerja PPL (8 slot sesuai template terbaru)
     wilayah = data.get('wilayah', [])
-    for i in range(1, 4):
+    for i in range(1, 9):
         w = wilayah[i-1] if i <= len(wilayah) else {}
         var_map[f'<<Kode Kecamatan {i}>>'] = w.get('kode_kecamatan', '')
         var_map[f'<<Kode Desa {i}>>']       = w.get('kode_desa', '')
