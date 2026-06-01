@@ -75,31 +75,52 @@ def fmt_rp(n):
 def ganti_paragraf(p, var_map):
     """
     Ganti placeholder <<...>> di paragraf sambil mempertahankan format per-run.
-    Strategi: coba ganti per-run dulu (format bold/italic tetap terjaga).
-    Fallback ke merge-run hanya jika placeholder terpecah di beberapa run.
+
+    Urutan:
+    1. Pola gabungan (multi-<<>>, mis. <<a>>-<<b>>-<<c>>) diganti dulu di full-text
+       agar pola seperti (02-06-2026) terbentuk sebelum placeholder tunggal diganti.
+    2. Placeholder tunggal diganti per-run agar format bold/italic terjaga.
+    3. Fallback merge ke run[0] jika placeholder tunggal terpecah antar run.
     """
     full = ''.join(r.text for r in p.runs)
     if not any(var in full for var in var_map):
-        return  # tidak ada placeholder, skip
+        return
 
-    # Coba ganti per-run (format tiap run tetap utuh)
+    # --- Tahap 1: pola gabungan (mengandung lebih dari satu <<>>) ---
+    combined_vars = {k: v for k, v in var_map.items() if k.count('<<') > 1}
+    single_vars   = {k: v for k, v in var_map.items() if k.count('<<') <= 1}
+
+    if combined_vars:
+        baru_combined = full
+        changed = False
+        for var, val in combined_vars.items():
+            if var in baru_combined:
+                baru_combined = baru_combined.replace(var, str(val) if val is not None else '')
+                changed = True
+        if changed and p.runs:
+            p.runs[0].text = baru_combined
+            for r in p.runs[1:]:
+                r.text = ''
+
+    # --- Tahap 2: placeholder tunggal, per-run (preserves bold/italic) ---
     diganti = False
     for r in p.runs:
         old = r.text
         new = old
-        for var, val in var_map.items():
+        for var, val in single_vars.items():
             new = new.replace(var, str(val) if val is not None else '')
         if new != old:
             r.text = new
             diganti = True
 
     if not diganti:
-        # Placeholder terpecah antar run — fallback: merge ke run pertama
-        baru = full
-        for var, val in var_map.items():
-            baru = baru.replace(var, str(val) if val is not None else '')
-        if baru != full and p.runs:
-            p.runs[0].text = baru
+        # Placeholder tunggal terpecah antar run — fallback: merge ke run pertama
+        full2 = ''.join(r.text for r in p.runs)
+        baru2 = full2
+        for var, val in single_vars.items():
+            baru2 = baru2.replace(var, str(val) if val is not None else '')
+        if baru2 != full2 and p.runs:
+            p.runs[0].text = baru2
             for r in p.runs[1:]:
                 r.text = ''
 
@@ -391,11 +412,13 @@ def generate_spk_se2026(data, template_path):
     jml_kel    = int(data.get('jumlah_keluarga', 0) or 0)
 
     var_map = {
+        # Pola gabungan harus didahulukan sebelum placeholder tunggal
+        '<<tanggal>>-<<bulan>>-<<tahun>>': tanggal.strftime('%d-%m-%Y'),
         '<<Nomor SPK>>':                 data.get('nomor_spk', ''),
         '<<hari>>':                      fmt_hari(tanggal),
-        '<<tanggal>>':                   tanggal.strftime('%d-%m-%Y'),
+        '<<tanggal>>':                   fmt_tgl_terbilang(tanggal),   # "dua", "tiga belas", dst.
         '<<bulan>>':                     fmt_bulan_nama(tanggal),
-        '<<tahun>>':                     str(tanggal.year),
+        '<<tahun>>':                     fmt_tahun_terbilang(tanggal),
         '<<nama>>':                      data.get('nama', ''),
         '<<alamat>>':                    data.get('alamat', ''),
         '<<Total Honor>>':               f"Rp{fmt_rp(data.get('total_honor', 0))},-",
