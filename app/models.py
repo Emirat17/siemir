@@ -227,6 +227,8 @@ class KontrakSE2026(db.Model):
     jumlah_sls       = db.Column(db.Integer, default=0)
     jumlah_usaha     = db.Column(db.Integer, default=0)
     jumlah_keluarga  = db.Column(db.Integer, default=0)
+    gelombang        = db.Column(db.Integer)
+    kelas            = db.Column(db.String(20))
     dibuat           = db.Column(db.DateTime, default=datetime.utcnow)
 
     wilayah_list = db.relationship('WilayahSE2026', backref='kontrak',

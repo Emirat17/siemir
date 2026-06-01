@@ -6,6 +6,47 @@
 {% set warna = 'primary' if jenis=='PPL' else 'success' %}
 {% set ikon  = 'person-badge' if jenis=='PPL' else 'person-check' %}
 
+<!-- Filter bar -->
+<form method="GET" class="card mb-3 border-0 shadow-sm">
+  <div class="card-body py-2">
+    <div class="row g-2 align-items-end" style="font-size:13px;">
+      <div class="col-md-2">
+        <label class="form-label mb-1 text-muted">Gelombang</label>
+        <select name="gelombang" class="form-select form-select-sm">
+          <option value="">Semua</option>
+          {% for g in gelombang_opts %}
+          <option value="{{ g }}" {{ 'selected' if g == gel_f }}>Gelombang {{ g }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label mb-1 text-muted">Kelas</label>
+        <select name="kelas" class="form-select form-select-sm">
+          <option value="">Semua</option>
+          {% for kl in kelas_opts %}
+          <option value="{{ kl }}" {{ 'selected' if kl == kelas_f }}>Kelas {{ kl }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label mb-1 text-muted">Cari Nama</label>
+        <input type="search" name="q" value="{{ cari_f }}" class="form-control form-control-sm"
+               placeholder="Ketik nama petugas…">
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-filter me-1"></i>Filter
+        </button>
+        <a href="{{ url_for('se2026.daftar', jenis=jenis.lower()) }}"
+           class="btn btn-outline-danger btn-sm ms-1">
+          <i class="bi bi-x-lg"></i>
+        </a>
+      </div>
+    </div>
+  </div>
+</form>
+
+<!-- Toolbar -->
 <div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
   <a href="{{ url_for('se2026.tambah', jenis=jenis.lower()) }}"
      class="btn btn-{{ warna }} btn-sm">
@@ -19,8 +60,56 @@
      class="btn btn-outline-secondary btn-sm">
     <i class="bi bi-download me-1"></i>Template Excel
   </a>
-  <span class="ms-auto text-muted" style="font-size:13px;">
-    Total: <strong>{{ kontrak_list|length }}</strong> petugas {{ jenis }}
+
+  <!-- Merge buttons -->
+  {% if gel_f or kelas_f %}
+  <a href="{{ url_for('se2026.merge', jenis=jenis.lower(), gelombang=gel_f, kelas=kelas_f) }}"
+     class="btn btn-warning btn-sm ms-auto">
+    <i class="bi bi-file-earmark-zip me-1"></i>
+    Merge SPK
+    {% if gel_f %}Gel {{ gel_f }}{% endif %}
+    {% if kelas_f %}Kelas {{ kelas_f }}{% endif %}
+    ({{ kontrak_list|length }} dok)
+  </a>
+  {% else %}
+  <div class="dropdown ms-auto">
+    <button class="btn btn-warning btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+      <i class="bi bi-file-earmark-zip me-1"></i>Merge Dokumen
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end" style="font-size:13px;">
+      {% if gelombang_opts %}
+      <li><h6 class="dropdown-header">Per Gelombang</h6></li>
+      {% for g in gelombang_opts %}
+      <li>
+        <a class="dropdown-item" href="{{ url_for('se2026.merge', jenis=jenis.lower(), gelombang=g) }}">
+          <i class="bi bi-layers me-1"></i>Gelombang {{ g }}
+        </a>
+      </li>
+      {% endfor %}
+      {% endif %}
+      {% if kelas_opts %}
+      <li><hr class="dropdown-divider"></li>
+      <li><h6 class="dropdown-header">Per Kelas</h6></li>
+      {% for kl in kelas_opts %}
+      <li>
+        <a class="dropdown-item" href="{{ url_for('se2026.merge', jenis=jenis.lower(), kelas=kl) }}">
+          <i class="bi bi-collection me-1"></i>Kelas {{ kl }}
+        </a>
+      </li>
+      {% endfor %}
+      {% endif %}
+      <li><hr class="dropdown-divider"></li>
+      <li>
+        <a class="dropdown-item" href="{{ url_for('se2026.merge', jenis=jenis.lower()) }}">
+          <i class="bi bi-files me-1"></i>Semua ({{ kontrak_list|length }} dok)
+        </a>
+      </li>
+    </ul>
+  </div>
+  {% endif %}
+
+  <span class="{{ '' if gel_f or kelas_f else 'ms-auto' }} text-muted" style="font-size:13px;">
+    Tampil: <strong>{{ kontrak_list|length }}</strong> petugas {{ jenis }}
   </span>
 </div>
 
@@ -33,6 +122,8 @@
             <th class="px-3" style="width:50px;">No.</th>
             <th>Nomor SPK</th>
             <th>Nama Petugas</th>
+            <th class="text-center">Gel.</th>
+            <th class="text-center">Kelas</th>
             <th>Tanggal SPK</th>
             <th class="text-end">Total Honor</th>
             {% if jenis == 'PPL' %}
@@ -40,7 +131,7 @@
             {% else %}
             <th class="text-center">PPL Diawasi</th>
             {% endif %}
-            <th style="width:120px;"></th>
+            <th style="width:130px;"></th>
           </tr>
         </thead>
         <tbody>
@@ -53,6 +144,16 @@
               {% else %}-{% endif %}
             </td>
             <td class="fw-medium">{{ k.nama }}</td>
+            <td class="text-center">
+              {% if k.gelombang %}
+              <span class="badge bg-primary bg-opacity-10 text-primary">{{ k.gelombang }}</span>
+              {% else %}-{% endif %}
+            </td>
+            <td class="text-center">
+              {% if k.kelas %}
+              <span class="badge bg-success bg-opacity-10 text-success">{{ k.kelas }}</span>
+              {% else %}-{% endif %}
+            </td>
             <td>{{ k.tanggal_spk.strftime('%d %b %Y') if k.tanggal_spk else '-' }}</td>
             <td class="text-end">
               Rp {{ '{:,.0f}'.format(k.total_honor or 0).replace(',','.') }}
@@ -60,7 +161,7 @@
             {% if jenis == 'PPL' %}
             <td class="text-center">
               <span class="badge bg-primary bg-opacity-10 text-primary">
-                {{ k.wilayah_list|length }} wilayah
+                {{ k.wilayah_list|length }} wil
               </span>
             </td>
             {% else %}
@@ -90,11 +191,9 @@
           </tr>
           {% else %}
           <tr>
-            <td colspan="7" class="text-center text-muted py-5">
+            <td colspan="9" class="text-center text-muted py-5">
               <i class="bi bi-{{ ikon }} fs-2 d-block mb-2 opacity-25"></i>
-              Belum ada data {{ jenis }}.
-              <a href="{{ url_for('se2026.tambah', jenis=jenis.lower()) }}">Tambah manual</a>
-              atau import Excel.
+              Belum ada data {{ jenis }} sesuai filter.
             </td>
           </tr>
           {% endfor %}
@@ -120,10 +219,11 @@
         <div class="modal-body">
           <div class="alert alert-info" style="font-size:12px;">
             <i class="bi bi-info-circle me-1"></i>
-            Gunakan template Excel yang tersedia.
+            Gunakan template Excel.
             <a href="{{ url_for('se2026.download_template', jenis=jenis.lower()) }}">
               Download template {{ jenis }}
             </a>
+            — pastikan kolom <strong>Gelombang</strong> dan <strong>Kelas</strong> diisi.
           </div>
           <div class="mb-3">
             <label class="form-label fw-medium" style="font-size:13px;">
@@ -131,7 +231,6 @@
             </label>
             <input type="date" name="tanggal_spk" class="form-control"
                    value="{{ today }}" required>
-            <div class="form-text">Semua kontrak dalam file ini akan menggunakan tanggal ini.</div>
           </div>
           <div class="mb-2">
             <label class="form-label fw-medium" style="font-size:13px;">

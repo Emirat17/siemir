@@ -17,6 +17,9 @@ TEMPLATE_PPL = os.path.join(os.path.dirname(__file__), 'templates',
 TEMPLATE_PML = os.path.join(os.path.dirname(__file__), 'templates',
                              '[6] Template_SPK Pemeriksa Lapangan SE2026 final.docx')
 
+# Kolom Excel: 9 kolom umum + 2 (Gelombang, Kelas) → wilayah/PPL mulai index 11
+WILAYAH_BASE = 11
+
 
 # ── Helpers ──────────────────────────────────────────────────────
 
@@ -30,8 +33,50 @@ def next_nomor(jenis_upper):
     rec.terakhir += 1
     return rec.terakhir
 
+
+def renomor_se2026(jenis_upper):
+    """Renomor ulang semua kontrak SE2026 secara berurutan mulai 001."""
+    kontraks = (KontrakSE2026.query
+                .filter_by(jenis=jenis_upper)
+                .order_by(KontrakSE2026.id).all())
+    for i, k in enumerate(kontraks, 1):
+        k.nomor_spk = f'{i:03d}'
+    rec = NomorUrut.query.filter_by(jenis=f'SE2026-{jenis_upper}').first()
+    if rec:
+        rec.terakhir = len(kontraks)
+    elif kontraks:
+        db.session.add(NomorUrut(jenis=f'SE2026-{jenis_upper}',
+                                 terakhir=len(kontraks)))
+
+
+def kontrak_ke_data(k):
+    return {
+        'nomor_spk':       k.nomor_spk or '',
+        'tanggal_spk':     k.tanggal_spk or date.today(),
+        'nama':            k.nama,
+        'alamat':          k.alamat or '',
+        'total_honor':     float(k.total_honor or 0),
+        'honor_1_ob':      float(k.honor_1_ob or 0),
+        'honor_1_5_ob':    float(k.honor_1_5_ob or 0),
+        'total_ganti_rugi':float(k.total_ganti_rugi or 0),
+        'jumlah_sls':      k.jumlah_sls or 0,
+        'jumlah_usaha':    k.jumlah_usaha or 0,
+        'jumlah_keluarga': k.jumlah_keluarga or 0,
+        'wilayah': [{'kode_kecamatan': w.kode_kecamatan,
+                     'kode_desa':      w.kode_desa,
+                     'jumlah_sls':     w.jumlah_sls,
+                     'jumlah_keluarga':w.jumlah_keluarga}
+                    for w in k.wilayah_list],
+        'ppl_list': [{'nama_ppl':       p.nama_ppl,
+                      'kode_kecamatan': p.kode_kecamatan,
+                      'kode_desa':      p.kode_desa,
+                      'jumlah_sls':     p.jumlah_sls}
+                     for p in k.ppl_list],
+    }
+
+
 def simpan_wilayah(kontrak_id, form):
-    for i in range(1, 9):  # 8 baris sesuai template terbaru
+    for i in range(1, 9):
         kec  = form.get(f'kode_kecamatan_{i}', '').strip()
         desa = form.get(f'kode_desa_{i}', '').strip()
         if kec or desa:
@@ -41,6 +86,7 @@ def simpan_wilayah(kontrak_id, form):
                 jumlah_sls=int(form.get(f'jumlah_sls_{i}', 0) or 0),
                 jumlah_keluarga=int(form.get(f'jumlah_keluarga_{i}', 0) or 0),
             ))
+
 
 def simpan_ppl_diawasi(kontrak_id, form):
     for i in range(1, 9):
@@ -54,22 +100,31 @@ def simpan_ppl_diawasi(kontrak_id, form):
                 jumlah_sls=int(form.get(f'jml_sls_ppl_{i}', 0) or 0),
             ))
 
-def buat_kontrak_dari_form(jenis_upper, form, tanggal_spk, nomor_spk=None):
-    k = KontrakSE2026(
-        jenis=jenis_upper,
-        nomor_spk=nomor_spk,
-        nama=form.get('nama', '').strip(),
-        alamat=form.get('alamat', '').strip(),
-        tanggal_spk=tanggal_spk,
-        total_honor=float(form.get('total_honor', 0) or 0),
-        honor_1_ob=float(form.get('honor_1_ob', 0) or 0),
-        honor_1_5_ob=float(form.get('honor_1_5_ob', 0) or 0),
-        total_ganti_rugi=float(form.get('total_ganti_rugi', 0) or 0),
-        jumlah_sls=int(form.get('jumlah_sls', 0) or 0),
-        jumlah_usaha=int(form.get('jumlah_usaha', 0) or 0),
-        jumlah_keluarga=int(form.get('jumlah_keluarga', 0) or 0),
-    )
-    return k
+
+def isi_kontrak_dari_form(k, form):
+    k.nama             = form.get('nama', '').strip()
+    k.alamat           = form.get('alamat', '').strip()
+    k.tanggal_spk      = date.fromisoformat(form['tanggal_spk'])
+    k.nomor_spk        = form.get('nomor_spk', k.nomor_spk or '').strip() or k.nomor_spk
+    k.total_honor      = float(form.get('total_honor', 0) or 0)
+    k.honor_1_ob       = float(form.get('honor_1_ob', 0) or 0)
+    k.honor_1_5_ob     = float(form.get('honor_1_5_ob', 0) or 0)
+    k.total_ganti_rugi = float(form.get('total_ganti_rugi', 0) or 0)
+    k.jumlah_sls       = int(form.get('jumlah_sls', 0) or 0)
+    k.jumlah_usaha     = int(form.get('jumlah_usaha', 0) or 0)
+    k.jumlah_keluarga  = int(form.get('jumlah_keluarga', 0) or 0)
+    gel = form.get('gelombang', '').strip()
+    k.gelombang        = int(gel) if gel.isdigit() else None
+    k.kelas            = form.get('kelas', '').strip() or None
+
+
+def pilihan_filter(jenis_upper):
+    """Ambil daftar gelombang dan kelas unik yang ada."""
+    rows = (db.session.query(KontrakSE2026.gelombang, KontrakSE2026.kelas)
+            .filter_by(jenis=jenis_upper).all())
+    gelombang_set = sorted({r.gelombang for r in rows if r.gelombang is not None})
+    kelas_set     = sorted({r.kelas for r in rows if r.kelas})
+    return gelombang_set, kelas_set
 
 
 # ── Routes ───────────────────────────────────────────────────────
@@ -88,11 +143,28 @@ def daftar(jenis):
     jenis_upper = jenis.upper()
     if jenis_upper not in ('PPL', 'PML'):
         return redirect(url_for('se2026.index'))
-    kontrak_list = (KontrakSE2026.query
-                    .filter_by(jenis=jenis_upper)
-                    .order_by(KontrakSE2026.id).all())
+
+    gel_f   = request.args.get('gelombang', type=int)
+    kelas_f = request.args.get('kelas', '').strip()
+    cari_f  = request.args.get('q', '').strip()
+
+    q = KontrakSE2026.query.filter_by(jenis=jenis_upper)
+    if gel_f:
+        q = q.filter_by(gelombang=gel_f)
+    if kelas_f:
+        q = q.filter_by(kelas=kelas_f)
+    if cari_f:
+        q = q.filter(KontrakSE2026.nama.ilike(f'%{cari_f}%'))
+
+    kontrak_list = q.order_by(KontrakSE2026.id).all()
+    gelombang_opts, kelas_opts = pilihan_filter(jenis_upper)
+
     return render_template('se2026/daftar.html',
-                           jenis=jenis_upper, kontrak_list=kontrak_list,
+                           jenis=jenis_upper,
+                           kontrak_list=kontrak_list,
+                           gelombang_opts=gelombang_opts,
+                           kelas_opts=kelas_opts,
+                           gel_f=gel_f, kelas_f=kelas_f, cari_f=cari_f,
                            today=date.today().isoformat())
 
 
@@ -105,13 +177,11 @@ def tambah(jenis):
         return redirect(url_for('se2026.index'))
 
     if request.method == 'POST':
-        tgl = date.fromisoformat(request.form['tanggal_spk'])
-        nomor_manual = request.form.get('nomor_spk', '').strip()
-        if not nomor_manual:
+        k = KontrakSE2026(jenis=jenis_upper)
+        isi_kontrak_dari_form(k, request.form)
+        if not k.nomor_spk:
             n = next_nomor(jenis_upper)
-            nomor_manual = f'{n:03d}'   # hanya angka; format lengkap ada di template Word
-
-        k = buat_kontrak_dari_form(jenis_upper, request.form, tgl, nomor_manual)
+            k.nomor_spk = f'{n:03d}'
         db.session.add(k)
         db.session.flush()
 
@@ -136,19 +206,8 @@ def tambah(jenis):
 def edit(id):
     k = KontrakSE2026.query.get_or_404(id)
     if request.method == 'POST':
-        k.nama             = request.form.get('nama', '').strip()
-        k.alamat           = request.form.get('alamat', '').strip()
-        k.tanggal_spk      = date.fromisoformat(request.form['tanggal_spk'])
-        k.nomor_spk        = request.form.get('nomor_spk', k.nomor_spk).strip()
-        k.total_honor      = float(request.form.get('total_honor', 0) or 0)
-        k.honor_1_ob       = float(request.form.get('honor_1_ob', 0) or 0)
-        k.honor_1_5_ob     = float(request.form.get('honor_1_5_ob', 0) or 0)
-        k.total_ganti_rugi = float(request.form.get('total_ganti_rugi', 0) or 0)
-        k.jumlah_sls       = int(request.form.get('jumlah_sls', 0) or 0)
-        k.jumlah_usaha     = int(request.form.get('jumlah_usaha', 0) or 0)
-        k.jumlah_keluarga  = int(request.form.get('jumlah_keluarga', 0) or 0)
+        isi_kontrak_dari_form(k, request.form)
 
-        # Hapus dan isi ulang relasi
         if k.jenis == 'PPL':
             for w in k.wilayah_list: db.session.delete(w)
             db.session.flush()
@@ -164,7 +223,8 @@ def edit(id):
 
     return render_template('se2026/form.html',
                            jenis=k.jenis, k=k,
-                           today=k.tanggal_spk.isoformat() if k.tanggal_spk else date.today().isoformat())
+                           today=k.tanggal_spk.isoformat() if k.tanggal_spk
+                                 else date.today().isoformat())
 
 
 @se2026.route('/<int:id>/hapus', methods=['POST'])
@@ -172,12 +232,14 @@ def edit(id):
 @role_required('admin_kabupaten', 'admin_fungsi')
 def hapus(id):
     k = KontrakSE2026.query.get_or_404(id)
-    jenis = k.jenis.lower()
-    nama  = k.nama
+    jenis_upper = k.jenis
+    nama = k.nama
     db.session.delete(k)
+    db.session.flush()
+    renomor_se2026(jenis_upper)   # nomor mundur otomatis
     db.session.commit()
-    flash(f'Kontrak SE2026 {nama} berhasil dihapus.', 'warning')
-    return redirect(url_for('se2026.daftar', jenis=jenis))
+    flash(f'Kontrak SE2026 {nama} dihapus. Nomor diperbarui otomatis.', 'warning')
+    return redirect(url_for('se2026.daftar', jenis=jenis_upper.lower()))
 
 
 @se2026.route('/<int:id>/spk.docx')
@@ -186,34 +248,40 @@ def generate(id):
     from app.doc_generator import generate_spk_se2026
     k = KontrakSE2026.query.get_or_404(id)
     template = TEMPLATE_PPL if k.jenis == 'PPL' else TEMPLATE_PML
-
-    data = {
-        'nomor_spk':       k.nomor_spk or '',
-        'tanggal_spk':     k.tanggal_spk or date.today(),
-        'nama':            k.nama,
-        'alamat':          k.alamat or '',
-        'total_honor':     float(k.total_honor or 0),
-        'honor_1_ob':      float(k.honor_1_ob or 0),
-        'honor_1_5_ob':    float(k.honor_1_5_ob or 0),
-        'total_ganti_rugi':float(k.total_ganti_rugi or 0),
-        'jumlah_sls':      k.jumlah_sls or 0,
-        'jumlah_usaha':    k.jumlah_usaha or 0,
-        'jumlah_keluarga': k.jumlah_keluarga or 0,
-        'wilayah': [{'kode_kecamatan': w.kode_kecamatan,
-                     'kode_desa':      w.kode_desa,
-                     'jumlah_sls':     w.jumlah_sls,
-                     'jumlah_keluarga':w.jumlah_keluarga}
-                    for w in k.wilayah_list],
-        'ppl_list': [{'nama_ppl':       p.nama_ppl,
-                      'kode_kecamatan': p.kode_kecamatan,
-                      'kode_desa':      p.kode_desa,
-                      'jumlah_sls':     p.jumlah_sls}
-                     for p in k.ppl_list],
-    }
-
-    docx_bytes = generate_spk_se2026(data, template)
+    docx_bytes = generate_spk_se2026(kontrak_ke_data(k), template)
     nama_file  = f"SPK_{k.jenis}_{k.nama.replace(' ', '_')}.docx"
     return Response(docx_bytes,
+        mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        headers={'Content-Disposition': f'attachment; filename="{nama_file}"'})
+
+
+@se2026.route('/<jenis>/merge')
+@login_required
+def merge(jenis):
+    from app.doc_generator import generate_spk_se2026, merge_docx_list
+    jenis_upper = jenis.upper()
+
+    gel_f   = request.args.get('gelombang', type=int)
+    kelas_f = request.args.get('kelas', '').strip()
+
+    q = KontrakSE2026.query.filter_by(jenis=jenis_upper)
+    if gel_f:
+        q = q.filter_by(gelombang=gel_f)
+    if kelas_f:
+        q = q.filter_by(kelas=kelas_f)
+    kontrak_list = q.order_by(KontrakSE2026.id).all()
+
+    if not kontrak_list:
+        flash('Tidak ada kontrak sesuai filter untuk di-merge.', 'warning')
+        return redirect(url_for('se2026.daftar', jenis=jenis.lower()))
+
+    template = TEMPLATE_PPL if jenis_upper == 'PPL' else TEMPLATE_PML
+    docs = [generate_spk_se2026(kontrak_ke_data(k), template) for k in kontrak_list]
+    merged = merge_docx_list(docs)
+
+    label = f'Gel{gel_f}' if gel_f else f'Kelas{kelas_f}' if kelas_f else 'Semua'
+    nama_file = f"Merge_SPK_{jenis_upper}_{label}_SE2026.docx"
+    return Response(merged,
         mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         headers={'Content-Disposition': f'attachment; filename="{nama_file}"'})
 
@@ -232,7 +300,6 @@ def import_excel(jenis):
     tgl_str = request.form.get('tanggal_spk', date.today().isoformat())
     tanggal_spk = date.fromisoformat(tgl_str)
 
-    # Helper: ambil nilai sel dengan aman
     def xval(row, idx, default=0):
         v = row[idx] if idx < len(row) else None
         return v if v is not None else default
@@ -254,7 +321,6 @@ def import_excel(jenis):
             return 0
 
     def xstr(row, idx):
-        """Konversi nilai sel ke string; float integer (1410010.0) → '1410010'."""
         v = xval(row, idx, '')
         if v is None or v == '':
             return ''
@@ -272,11 +338,16 @@ def import_excel(jenis):
         if not nama:
             continue
         try:
-            n = next_nomor(jenis_upper)
+            # Kolom 9 = Gelombang, 10 = Kelas
+            gel_val = xval(row, 9, None)
+            gel = int(float(gel_val)) if gel_val not in (None, '', 0) else None
+            kelas_val = xstr(row, 10)
+            kelas = kelas_val if kelas_val else None
+
             k = KontrakSE2026(
                 jenis=jenis_upper,
                 nama=nama,
-                nomor_spk=f'{n:03d}',
+                nomor_spk='000',          # sementara; renomor di akhir
                 alamat=xstr(row, 1),
                 tanggal_spk=tanggal_spk,
                 total_honor=xfloat(row, 2),
@@ -286,14 +357,16 @@ def import_excel(jenis):
                 jumlah_sls=xint(row, 6),
                 jumlah_usaha=xint(row, 7),
                 jumlah_keluarga=xint(row, 8),
+                gelombang=gel,
+                kelas=kelas,
             )
             db.session.add(k)
             db.session.flush()
 
             if jenis_upper == 'PPL':
                 for i in range(8):
-                    base = 9 + i * 4
-                    # Urutan kolom Excel PPL: Kode Desa | Jml SLS | Jml Keluarga | Kode Kecamatan
+                    base = WILAYAH_BASE + i * 4
+                    # Urutan: Kode Desa | Jml SLS | Jml Keluarga | Kode Kecamatan
                     desa = xstr(row, base)
                     sls  = xint(row, base + 1)
                     kel  = xint(row, base + 2)
@@ -304,9 +377,9 @@ def import_excel(jenis):
                             kode_kecamatan=kec, kode_desa=desa,
                             jumlah_sls=sls, jumlah_keluarga=kel,
                         ))
-            else:  # PML
+            else:
                 for i in range(8):
-                    base     = 9 + i * 4
+                    base     = WILAYAH_BASE + i * 4
                     nama_ppl = xstr(row, base)
                     kec      = xstr(row, base + 1)
                     desa     = xstr(row, base + 2)
@@ -325,12 +398,15 @@ def import_excel(jenis):
             pesan_error.append(f'Baris {baris} ({nama}): {e}')
 
     if berhasil:
+        db.session.flush()
+        renomor_se2026(jenis_upper)   # renomor dari 001 setelah semua data masuk
         db.session.commit()
+
     msg = f'Import selesai: {berhasil} berhasil'
     if gagal:
         msg += f', {gagal} gagal'
     flash(msg + '.', 'success' if not gagal else 'warning')
-    for pe in pesan_error[:3]:   # tampilkan maks 3 error detail
+    for pe in pesan_error[:3]:
         flash(pe, 'danger')
     return redirect(url_for('se2026.daftar', jenis=jenis.lower()))
 
@@ -340,6 +416,7 @@ def import_excel(jenis):
 def download_template(jenis):
     import openpyxl
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    import openpyxl.utils as u
 
     jenis_upper = jenis.upper()
     wb = openpyxl.Workbook()
@@ -347,8 +424,10 @@ def download_template(jenis):
     ws.title = f'Template {jenis_upper} SE2026'
 
     biru   = PatternFill('solid', fgColor='1341A0')
+    hijau  = PatternFill('solid', fgColor='1D6F42')
     muda   = PatternFill('solid', fgColor='BDD7EE')
     f_putih= Font(bold=True, color='FFFFFF', size=10)
+    f_hij  = Font(bold=True, color='FFFFFF', size=10)
     f_biru = Font(bold=True, color='1A3A6B', size=9)
     thin   = Side(style='thin', color='AAAAAA')
     bdr    = Border(left=thin, right=thin, top=thin, bottom=thin)
@@ -357,27 +436,30 @@ def download_template(jenis):
     def hdr(col, text, fill=biru, font=f_putih):
         c = ws.cell(row=1, column=col, value=text)
         c.fill, c.font, c.alignment, c.border = fill, font, center, bdr
-        import openpyxl.utils as u
         ws.column_dimensions[u.get_column_letter(col)].width = 20
 
-    kolom_umum = [
+    # 9 kolom umum
+    for i, h in enumerate([
         'Nama Lengkap', 'Alamat', 'Total Honor (Rp)',
         'Honor 1 OB (Rp)', 'Honor 1,5 OB (Rp)', 'Total Ganti Rugi (Rp)',
         'Jumlah SLS (Total)', 'Jumlah Usaha (Total)', 'Jumlah Keluarga (Total)',
-    ]
-    for i, h in enumerate(kolom_umum, 1):
+    ], 1):
         hdr(i, h)
 
+    # Kolom 10-11: Gelombang & Kelas
+    hdr(10, 'Gelombang', fill=hijau, font=f_hij)
+    hdr(11, 'Kelas', fill=hijau, font=f_hij)
+
+    # Kolom wilayah / PPL diawasi (mulai kolom 12 = index 11)
     if jenis_upper == 'PPL':
-        for s in range(1, 9):  # 8 wilayah
-            base = 9 + (s-1)*4
-            # Urutan: Kode Desa | Jml SLS | Jml Keluarga | Kode Kecamatan
+        for s in range(1, 9):
+            base = WILAYAH_BASE + (s-1)*4 + 1   # 1-indexed
             for j, h in enumerate(['Kode Desa', 'Jml SLS', 'Jml Keluarga', 'Kode Kecamatan']):
                 hdr(base+j, f'Wilayah {s}\n{h}', fill=muda, font=f_biru)
         contoh_extra = ['1410010001', 5, 20, '1410010'] + [''] * 28
     else:
         for s in range(1, 9):
-            base = 9 + (s-1)*4
+            base = WILAYAH_BASE + (s-1)*4 + 1
             for j, h in enumerate([f'Nama PPL {s}', f'Kode Kec {s}',
                                     f'Kode Desa {s}', f'Jml SLS {s}']):
                 hdr(base+j, h, fill=muda, font=f_biru)
@@ -385,12 +467,10 @@ def download_template(jenis):
 
     ws.row_dimensions[1].height = 42
 
-    # Baris contoh
-    contoh = ['Nama Petugas Contoh', 'Jl. Contoh No. 1, Desa X',
-              2500000, 1000000, 1500000, 2500000, 10, 15, 30] + contoh_extra
+    contoh = ['Nama Petugas Contoh', 'Jl. Contoh No. 1', 2500000, 1000000, 1500000,
+              2500000, 10, 15, 30, 1, 'A'] + contoh_extra
     for i, v in enumerate(contoh, 1):
-        c = ws.cell(row=2, column=i, value=v)
-        c.border = bdr
+        ws.cell(row=2, column=i, value=v).border = bdr
 
     buf = io.BytesIO()
     wb.save(buf)

@@ -49,8 +49,20 @@
             </label>
             <input type="text" name="nomor_spk" class="form-control font-monospace"
                    value="{{ k.nomor_spk if k else '' }}"
-                   placeholder="{{ jenis }}-001/SE2026/2026"
+                   placeholder="001"
                    style="font-size:13px;">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-medium" style="font-size:13px;">Gelombang</label>
+            <input type="number" name="gelombang" class="form-control"
+                   value="{{ k.gelombang if k and k.gelombang else '' }}"
+                   placeholder="1" min="1">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-medium" style="font-size:13px;">Kelas</label>
+            <input type="text" name="kelas" class="form-control"
+                   value="{{ k.kelas if k and k.kelas else '' }}"
+                   placeholder="A" maxlength="20">
           </div>
         </div>
       </div>
