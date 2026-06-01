@@ -247,35 +247,54 @@ def hapus(id):
 @role_required('admin_kabupaten', 'admin_fungsi')
 def hapus_massal(jenis):
     jenis_upper = jenis.upper()
-    ids_str = request.form.getlist('ids')          # dari checkbox
-    hapus_semua = request.form.get('hapus_semua')  # dari tombol Hapus Semua
+    hapus_semua = request.form.get('hapus_semua')
 
+    # Kumpulkan ID yang akan dihapus
     if hapus_semua:
         q = KontrakSE2026.query.filter_by(jenis=jenis_upper)
-        # terapkan filter aktif agar Hapus Semua hanya hapus yang terfilter
         gel_f   = request.form.get('gel_f', type=int)
         kelas_f = request.form.get('kelas_f', '').strip()
         if gel_f:
             q = q.filter_by(gelombang=gel_f)
         if kelas_f:
             q = q.filter_by(kelas=kelas_f)
-        dihapus = q.count()
-        q.delete(synchronize_session=False)
+        ids_hapus = [k.id for k in q.all()]
     else:
+        ids_str = request.form.getlist('ids')
         if not ids_str:
             flash('Pilih minimal satu kontrak untuk dihapus.', 'warning')
             return redirect(url_for('se2026.daftar', jenis=jenis))
-        ids = [int(i) for i in ids_str if i.isdigit()]
-        dihapus = KontrakSE2026.query.filter(
-            KontrakSE2026.id.in_(ids),
-            KontrakSE2026.jenis == jenis_upper,
-        ).delete(synchronize_session=False)
+        ids_hapus = [int(i) for i in ids_str if i.isdigit()]
+
+    if not ids_hapus:
+        flash('Tidak ada kontrak yang dihapus.', 'warning')
+        return redirect(url_for('se2026.daftar', jenis=jenis))
+
+    # Hapus relasi dulu (cascade manual) agar tidak ada FK violation
+    WilayahSE2026.query.filter(
+        WilayahSE2026.kontrak_id.in_(ids_hapus)
+    ).delete(synchronize_session=False)
+
+    PPLDiwasiSE2026.query.filter(
+        PPLDiwasiSE2026.kontrak_id.in_(ids_hapus)
+    ).delete(synchronize_session=False)
+
+    # Baru hapus kontrak utama
+    dihapus = KontrakSE2026.query.filter(
+        KontrakSE2026.id.in_(ids_hapus)
+    ).delete(synchronize_session=False)
 
     db.session.flush()
-    mulai_dari = request.form.get('mulai_dari_renomor', 1, type=int) or 1
+
+    # Ambil nilai mulai_dari dari field terakhir (visible, bukan hidden)
+    semua_mulai = request.form.getlist('mulai_dari_renomor')
+    mulai_dari = int(semua_mulai[-1]) if semua_mulai else 1
+    if mulai_dari < 1:
+        mulai_dari = 1
     renomor_se2026(jenis_upper, mulai_dari=mulai_dari)
     db.session.commit()
-    flash(f'{dihapus} kontrak {jenis_upper} berhasil dihapus. Nomor diperbarui.', 'warning')
+
+    flash(f'{dihapus} kontrak {jenis_upper} berhasil dihapus. Nomor diperbarui mulai dari {mulai_dari:03d}.', 'warning')
     return redirect(url_for('se2026.daftar', jenis=jenis))
 
 
