@@ -471,26 +471,46 @@ def generate_spk_se2026(data, template_path):
 
 # ── MERGE DOKUMEN ────────────────────────────────────────────────
 def merge_docx_list(docx_bytes_list):
-    """Gabungkan beberapa file .docx menjadi satu dengan page break."""
+    """
+    Gabungkan beberapa .docx menjadi satu, mempertahankan orientasi
+    halaman (portrait/landscape) tiap dokumen.
+
+    Strategi:
+    - sectPr final master dipindahkan ke dalam paragraf kosong (inner
+      section break) agar orientasi landscape lampiran tetap terjaga.
+    - sectPr final dokumen sumber menjadi sectPr final master yang baru.
+    - Tidak ada explicit page break tambahan — section break sudah
+      menyebabkan perpindahan halaman sehingga tidak ada halaman kosong.
+    """
     if not docx_bytes_list:
         return None
     if len(docx_bytes_list) == 1:
         return docx_bytes_list[0]
 
-    master = Document(io.BytesIO(docx_bytes_list[0]))
+    TAG_SECT = qn('w:sectPr')
+
+    master      = Document(io.BytesIO(docx_bytes_list[0]))
+    master_body = master.element.body
 
     for docx_bytes in docx_bytes_list[1:]:
-        para = master.add_paragraph()
-        run  = para.add_run()
-        br   = OxmlElement('w:br')
-        br.set(qn('w:type'), 'page')
-        run._r.append(br)
+        src      = Document(io.BytesIO(docx_bytes))
+        src_body = src.element.body
 
-        src = Document(io.BytesIO(docx_bytes))
-        for element in src.element.body:
-            if element.tag.endswith('}sectPr'):
-                continue
-            master.element.body.append(copy.deepcopy(element))
+        # Pindahkan sectPr final master ke paragraf kosong (inner section break).
+        # Ini mempertahankan orientasi landscape halaman lampiran dokumen sebelumnya.
+        master_final = master_body.find(TAG_SECT)
+        if master_final is not None:
+            master_body.remove(master_final)
+            brk_p   = OxmlElement('w:p')
+            brk_pPr = OxmlElement('w:pPr')
+            brk_pPr.append(copy.deepcopy(master_final))
+            brk_p.insert(0, brk_pPr)
+            master_body.append(brk_p)
+
+        # Salin semua elemen src (termasuk sectPr finalnya) ke master.
+        # sectPr final src menjadi sectPr final master yang baru.
+        for el in src_body:
+            master_body.append(copy.deepcopy(el))
 
     buf = io.BytesIO()
     master.save(buf)
