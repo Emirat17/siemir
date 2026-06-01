@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Edit' if k else 'Tambah' }} Kontrak {{ jenis }} SE2026{% endblock %}
+{% block page_title %}{{ 'Edit' if k else 'Tambah' }} Kontrak SE2026 — {{ jenis }}{% endblock %}
+
+{% block content %}
+{% set warna = 'primary' if jenis=='PPL' else 'success' %}
+
+<div class="row justify-content-center">
+  <div class="col-lg-9">
+
+    <form method="POST">
+    <!-- ─── Header ─────────────────────────────────────────────── -->
+    <div class="card mb-3">
+      <div class="card-header bg-white py-3 d-flex justify-content-between">
+        <h6 class="mb-0 fw-semibold">
+          <i class="bi bi-person-badge me-2 text-{{ warna }}"></i>
+          Identitas Petugas & Nomor SPK
+        </h6>
+        <a href="{{ url_for('se2026.daftar', jenis=jenis.lower()) }}"
+           class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-arrow-left me-1"></i>Kembali
+        </a>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-8">
+            <label class="form-label fw-medium" style="font-size:13px;">
+              Nama Lengkap <span class="text-danger">*</span>
+            </label>
+            <input type="text" name="nama" class="form-control"
+                   value="{{ k.nama if k else '' }}" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-medium" style="font-size:13px;">
+              Tanggal SPK <span class="text-danger">*</span>
+            </label>
+            <input type="date" name="tanggal_spk" class="form-control"
+                   value="{{ today }}" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-medium" style="font-size:13px;">Alamat</label>
+            <textarea name="alamat" class="form-control" rows="2"
+                      style="font-size:13px;">{{ k.alamat if k else '' }}</textarea>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-medium" style="font-size:13px;">
+              Nomor SPK
+              <span class="text-muted fw-normal">(kosongkan = auto)</span>
+            </label>
+            <input type="text" name="nomor_spk" class="form-control font-monospace"
+                   value="{{ k.nomor_spk if k else '' }}"
+                   placeholder="{{ jenis }}-001/SE2026/2026"
+                   style="font-size:13px;">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Honor ──────────────────────────────────────────────── -->
+    <div class="card mb-3">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold"><i class="bi bi-cash-stack me-2 text-{{ warna }}"></i>Nilai Honor</h6>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-3">
+            <label class="form-label fw-medium" style="font-size:13px;">Total Honor (Rp)</label>
+            <input type="number" name="total_honor" class="form-control"
+                   value="{{ k.total_honor|int if k else 0 }}" min="0" step="1000">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-medium" style="font-size:13px;">Honor 1 OB (Rp)</label>
+            <input type="number" name="honor_1_ob" class="form-control"
+                   value="{{ k.honor_1_ob|int if k else 0 }}" min="0" step="1000">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-medium" style="font-size:13px;">Honor 1,5 OB (Rp)</label>
+            <input type="number" name="honor_1_5_ob" class="form-control"
+                   value="{{ k.honor_1_5_ob|int if k else 0 }}" min="0" step="1000">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-medium" style="font-size:13px;">Total Ganti Rugi (Rp)</label>
+            <input type="number" name="total_ganti_rugi" class="form-control"
+                   value="{{ k.total_ganti_rugi|int if k else 0 }}" min="0" step="1000">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── Volume ─────────────────────────────────────────────── -->
+    <div class="card mb-3">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold">
+          <i class="bi bi-bar-chart-fill me-2 text-{{ warna }}"></i>Volume Pekerjaan (Total)
+        </h6>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label fw-medium" style="font-size:13px;">Jumlah SLS</label>
+            <input type="number" name="jumlah_sls" class="form-control"
+                   value="{{ k.jumlah_sls if k else 0 }}" min="0">
+            <div class="form-text">40%: auto | 60%: auto</div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-medium" style="font-size:13px;">Jumlah Usaha</label>
+            <input type="number" name="jumlah_usaha" class="form-control"
+                   value="{{ k.jumlah_usaha if k else 0 }}" min="0">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-medium" style="font-size:13px;">Jumlah Keluarga</label>
+            <input type="number" name="jumlah_keluarga" class="form-control"
+                   value="{{ k.jumlah_keluarga if k else 0 }}" min="0">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── PPL: Wilayah Kerja ──────────────────────────────────── -->
+    {% if jenis == 'PPL' %}
+    <div class="card mb-3">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold">
+          <i class="bi bi-map me-2 text-primary"></i>Wilayah Kerja (maks 3 baris)
+        </h6>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-bordered mb-0" style="font-size:13px;">
+          <thead style="background:#f0f4ff;">
+            <tr>
+              <th class="px-3" style="width:40px;">No.</th>
+              <th>Kode Kecamatan</th>
+              <th>Kode Desa</th>
+              <th>Jumlah SLS</th>
+              <th>Jumlah Keluarga</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% set wil = k.wilayah_list if k else [] %}
+            {% for i in range(1, 4) %}
+            {% set w = wil[i-1] if i <= wil|length else none %}
+            <tr>
+              <td class="px-3 text-muted">{{ i }}</td>
+              <td><input type="text" name="kode_kecamatan_{{ i }}" class="form-control form-control-sm"
+                         value="{{ w.kode_kecamatan if w else '' }}" placeholder="mis. 1410010"></td>
+              <td><input type="text" name="kode_desa_{{ i }}" class="form-control form-control-sm"
+                         value="{{ w.kode_desa if w else '' }}" placeholder="mis. 1410010001"></td>
+              <td><input type="number" name="jumlah_sls_{{ i }}" class="form-control form-control-sm"
+                         value="{{ w.jumlah_sls if w else 0 }}" min="0"></td>
+              <td><input type="number" name="jumlah_keluarga_{{ i }}" class="form-control form-control-sm"
+                         value="{{ w.jumlah_keluarga if w else 0 }}" min="0"></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ─── PML: Daftar PPL Diawasi ─────────────────────────────── -->
+    {% else %}
+    <div class="card mb-3">
+      <div class="card-header bg-white py-3">
+        <h6 class="mb-0 fw-semibold">
+          <i class="bi bi-people me-2 text-success"></i>Daftar PPL yang Diawasi (maks 8 orang)
+        </h6>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-bordered mb-0" style="font-size:13px;">
+          <thead style="background:#f0fff4;">
+            <tr>
+              <th class="px-3" style="width:40px;">No.</th>
+              <th>Nama PPL</th>
+              <th>Kode Kecamatan</th>
+              <th>Kode Desa</th>
+              <th>Jumlah SLS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% set ppl = k.ppl_list if k else [] %}
+            {% for i in range(1, 9) %}
+            {% set p = ppl[i-1] if i <= ppl|length else none %}
+            <tr>
+              <td class="px-3 text-muted">{{ i }}</td>
+              <td><input type="text" name="nama_ppl_{{ i }}" class="form-control form-control-sm"
+                         value="{{ p.nama_ppl if p else '' }}" placeholder="Nama PPL {{ i }}"></td>
+              <td><input type="text" name="kode_kec_ppl_{{ i }}" class="form-control form-control-sm"
+                         value="{{ p.kode_kecamatan if p else '' }}" placeholder="mis. 1410010"></td>
+              <td><input type="text" name="kode_desa_ppl_{{ i }}" class="form-control form-control-sm"
+                         value="{{ p.kode_desa if p else '' }}" placeholder="mis. 1410010001"></td>
+              <td><input type="number" name="jml_sls_ppl_{{ i }}" class="form-control form-control-sm"
+                         value="{{ p.jumlah_sls if p else 0 }}" min="0"></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ─── Submit ─────────────────────────────────────────────── -->
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-{{ warna }}">
+        <i class="bi bi-check-lg me-1"></i>
+        {{ 'Simpan Perubahan' if k else 'Simpan Kontrak' }}
+      </button>
+      <a href="{{ url_for('se2026.daftar', jenis=jenis.lower()) }}"
+         class="btn btn-outline-secondary">Batal</a>
+    </div>
+
+    </form>
+  </div>
+</div>
+{% endblock %}

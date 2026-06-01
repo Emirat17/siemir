@@ -346,6 +346,32 @@
       </div>
     </div>
 
+    <!-- SE2026 -->
+    <div class="nav-section">Sensus Ekonomi 2026</div>
+
+    <div class="nav-group">
+      <div class="nav-group-toggle {% if 'se2026' in (ep or '') %}open{% endif %}"
+           onclick="toggleGroup(this)">
+        <i class="bi bi-clipboard2-data-fill icon-main"></i>
+        Kontrak SE2026
+        <i class="bi bi-chevron-down chevron"></i>
+      </div>
+      <div class="nav-group-body {% if 'se2026' in (ep or '') %}show{% endif %}">
+        <a href="{{ url_for('se2026.index') }}"
+           class="nav-link {% if ep == 'se2026.index' %}active{% endif %}">
+          <i class="bi bi-grid-1x2"></i> Beranda SE2026
+        </a>
+        <a href="{{ url_for('se2026.daftar', jenis='ppl') }}"
+           class="nav-link {% if ep == 'se2026.daftar' and request.view_args.get('jenis','').upper()=='PPL' %}active{% endif %}">
+          <i class="bi bi-person-badge"></i> PPL (Pendataan)
+        </a>
+        <a href="{{ url_for('se2026.daftar', jenis='pml') }}"
+           class="nav-link {% if ep == 'se2026.daftar' and request.view_args.get('jenis','').upper()=='PML' %}active{% endif %}">
+          <i class="bi bi-person-check"></i> PML (Pemeriksa)
+        </a>
+      </div>
+    </div>
+
     <!-- Administrasi -->
     <div class="nav-section">Administrasi</div>
 

@@ -207,3 +207,57 @@ class Kegiatan(db.Model):
     mata_akun       = db.Column(db.String(100), nullable=False)
     urutan          = db.Column(db.Integer, default=0)
     def __repr__(self): return f'<Kegiatan {self.nama_kegiatan}>'
+
+
+# ── SE2026 ───────────────────────────────────────────────────────────────────
+
+class KontrakSE2026(db.Model):
+    """Kontrak Sensus Ekonomi 2026 untuk PPL dan PML."""
+    __tablename__ = 'kontrak_se2026'
+    id               = db.Column(db.Integer, primary_key=True)
+    jenis            = db.Column(db.String(5),  nullable=False)   # 'PPL' or 'PML'
+    nomor_spk        = db.Column(db.String(100))
+    nama             = db.Column(db.String(200), nullable=False)
+    alamat           = db.Column(db.Text)
+    tanggal_spk      = db.Column(db.Date)
+    total_honor      = db.Column(db.Numeric(15, 2), default=0)
+    honor_1_ob       = db.Column(db.Numeric(15, 2), default=0)
+    honor_1_5_ob     = db.Column(db.Numeric(15, 2), default=0)
+    total_ganti_rugi = db.Column(db.Numeric(15, 2), default=0)
+    jumlah_sls       = db.Column(db.Integer, default=0)
+    jumlah_usaha     = db.Column(db.Integer, default=0)
+    jumlah_keluarga  = db.Column(db.Integer, default=0)
+    dibuat           = db.Column(db.DateTime, default=datetime.utcnow)
+
+    wilayah_list = db.relationship('WilayahSE2026', backref='kontrak',
+                                   lazy=True, cascade='all, delete-orphan',
+                                   order_by='WilayahSE2026.urutan')
+    ppl_list     = db.relationship('PPLDiwasiSE2026', backref='kontrak_pml',
+                                   lazy=True, cascade='all, delete-orphan',
+                                   order_by='PPLDiwasiSE2026.urutan')
+
+    def __repr__(self): return f'<SE2026 {self.jenis} {self.nama}>'
+
+
+class WilayahSE2026(db.Model):
+    """Wilayah kerja PPL SE2026 (maks 3 baris)."""
+    __tablename__ = 'wilayah_se2026'
+    id             = db.Column(db.Integer, primary_key=True)
+    kontrak_id     = db.Column(db.Integer, db.ForeignKey('kontrak_se2026.id'), nullable=False)
+    urutan         = db.Column(db.Integer, nullable=False)
+    kode_kecamatan = db.Column(db.String(20))
+    kode_desa      = db.Column(db.String(20))
+    jumlah_sls     = db.Column(db.Integer, default=0)
+    jumlah_keluarga= db.Column(db.Integer, default=0)
+
+
+class PPLDiwasiSE2026(db.Model):
+    """Daftar PPL yang diawasi oleh PML SE2026 (maks 8 orang)."""
+    __tablename__ = 'ppl_diawasi_se2026'
+    id             = db.Column(db.Integer, primary_key=True)
+    kontrak_id     = db.Column(db.Integer, db.ForeignKey('kontrak_se2026.id'), nullable=False)
+    urutan         = db.Column(db.Integer, nullable=False)
+    nama_ppl       = db.Column(db.String(200))
+    kode_kecamatan = db.Column(db.String(20))
+    kode_desa      = db.Column(db.String(20))
+    jumlah_sls     = db.Column(db.Integer, default=0)

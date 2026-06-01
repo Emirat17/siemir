@@ -364,6 +364,65 @@ def generate_bast(kontrak, template_path):
     return buf.read()
 
 
+# ── GENERATOR SPK SE2026 ─────────────────────────────────────────
+def generate_spk_se2026(data, template_path):
+    """Generate SPK SE2026 (PPL atau PML) dari template Word."""
+    doc = Document(template_path)
+    tanggal = data['tanggal_spk']
+
+    jml_sls    = int(data.get('jumlah_sls', 0) or 0)
+    jml_usaha  = int(data.get('jumlah_usaha', 0) or 0)
+    jml_kel    = int(data.get('jumlah_keluarga', 0) or 0)
+
+    var_map = {
+        '<<Nomor SPK>>':                 data.get('nomor_spk', ''),
+        '<<hari>>':                      fmt_hari(tanggal),
+        '<<tanggal>>':                   fmt_tgl_terbilang(tanggal),
+        '<<bulan>>':                     fmt_bulan_nama(tanggal),
+        '<<tahun>>':                     fmt_tahun_terbilang(tanggal),
+        '<<nama>>':                      data.get('nama', ''),
+        '<<alamat>>':                    data.get('alamat', ''),
+        '<<Total Honor>>':               f"Rp{fmt_rp(data.get('total_honor', 0))},-",
+        '<<Total Honor Terbilang>>':     terbilang_rupiah(data.get('total_honor', 0)),
+        '<<Honor 1 OB>>':                f"Rp{fmt_rp(data.get('honor_1_ob', 0))},-",
+        '<<Honor 1,5 OB>>':              f"Rp{fmt_rp(data.get('honor_1_5_ob', 0))},-",
+        '<<Total Ganti Rugi>>':          f"Rp{fmt_rp(data.get('total_ganti_rugi', 0))},-",
+        '<<Total Ganti Rugi Terbilang>>':terbilang_rupiah(data.get('total_ganti_rugi', 0)),
+        '<<Jumlah SLS>>':                str(jml_sls),
+        '<<40% dari Jumlah SLS>>':       str(round(jml_sls   * 0.4)),
+        '<<60% dari Jumlah SLS>>':       str(round(jml_sls   * 0.6)),
+        '<<40% dari Jumlah Usaha>>':     str(round(jml_usaha * 0.4)),
+        '<<60% dari Jumlah Usaha>>':     str(round(jml_usaha * 0.6)),
+        '<<40% dari Jumlah Keluarga>>':  str(round(jml_kel   * 0.4)),
+        '<<60% dari Jumlah Keluarga>>':  str(round(jml_kel   * 0.6)),
+    }
+
+    # Wilayah kerja PPL (3 slot)
+    wilayah = data.get('wilayah', [])
+    for i in range(1, 4):
+        w = wilayah[i-1] if i <= len(wilayah) else {}
+        var_map[f'<<Kode Kecamatan {i}>>'] = w.get('kode_kecamatan', '')
+        var_map[f'<<Kode Desa {i}>>']       = w.get('kode_desa', '')
+        var_map[f'<<Jumlah SLS {i}>>']      = str(w.get('jumlah_sls', '') or '')
+        var_map[f'<<Jumlah Keluarga {i}>>'] = str(w.get('jumlah_keluarga', '') or '')
+
+    # Daftar PPL yang diawasi PML (8 slot)
+    ppl_list = data.get('ppl_list', [])
+    for i in range(1, 9):
+        p = ppl_list[i-1] if i <= len(ppl_list) else {}
+        var_map[f'<<Nama PPL {i}>>']           = p.get('nama_ppl', '')
+        var_map[f'<<Kode Kecamatan PPL {i}>>'] = p.get('kode_kecamatan', '')
+        var_map[f'<<Kode Desa PPL {i}>>']      = p.get('kode_desa', '')
+        var_map[f'<<Jumlah SLS PPL {i}>>']     = str(p.get('jumlah_sls', '') or '')
+
+    ganti_doc(doc, var_map)
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+    return buf.read()
+
+
 # ── MERGE DOKUMEN ────────────────────────────────────────────────
 def merge_docx_list(docx_bytes_list):
     """Gabungkan beberapa file .docx menjadi satu dengan page break."""

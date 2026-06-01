@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+{% block title %}Daftar {{ jenis }} SE2026{% endblock %}
+{% block page_title %}Kontrak SE2026 — {{ jenis }} (Petugas {{ 'Pendataan' if jenis=='PPL' else 'Pemeriksa' }} Lapangan){% endblock %}
+
+{% block content %}
+{% set warna = 'primary' if jenis=='PPL' else 'success' %}
+{% set ikon  = 'person-badge' if jenis=='PPL' else 'person-check' %}
+
+<div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
+  <a href="{{ url_for('se2026.tambah', jenis=jenis.lower()) }}"
+     class="btn btn-{{ warna }} btn-sm">
+    <i class="bi bi-plus-lg me-1"></i>Tambah Manual
+  </a>
+  <button class="btn btn-outline-success btn-sm"
+          data-bs-toggle="modal" data-bs-target="#modalImport">
+    <i class="bi bi-file-earmark-excel me-1"></i>Import Excel
+  </button>
+  <a href="{{ url_for('se2026.download_template', jenis=jenis.lower()) }}"
+     class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-download me-1"></i>Template Excel
+  </a>
+  <span class="ms-auto text-muted" style="font-size:13px;">
+    Total: <strong>{{ kontrak_list|length }}</strong> petugas {{ jenis }}
+  </span>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0" style="font-size:12.5px;">
+        <thead style="background:#f8f9fb;">
+          <tr>
+            <th class="px-3" style="width:50px;">No.</th>
+            <th>Nomor SPK</th>
+            <th>Nama Petugas</th>
+            <th>Tanggal SPK</th>
+            <th class="text-end">Total Honor</th>
+            {% if jenis == 'PPL' %}
+            <th class="text-center">Wilayah</th>
+            {% else %}
+            <th class="text-center">PPL Diawasi</th>
+            {% endif %}
+            <th style="width:120px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for k in kontrak_list %}
+          <tr>
+            <td class="px-3 text-muted">{{ loop.index }}</td>
+            <td class="fw-medium font-monospace" style="font-size:11px;">{{ k.nomor_spk or '-' }}</td>
+            <td class="fw-medium">{{ k.nama }}</td>
+            <td>{{ k.tanggal_spk.strftime('%d %b %Y') if k.tanggal_spk else '-' }}</td>
+            <td class="text-end">
+              Rp {{ '{:,.0f}'.format(k.total_honor or 0).replace(',','.') }}
+            </td>
+            {% if jenis == 'PPL' %}
+            <td class="text-center">
+              <span class="badge bg-primary bg-opacity-10 text-primary">
+                {{ k.wilayah_list|length }} wilayah
+              </span>
+            </td>
+            {% else %}
+            <td class="text-center">
+              <span class="badge bg-success bg-opacity-10 text-success">
+                {{ k.ppl_list|length }} PPL
+              </span>
+            </td>
+            {% endif %}
+            <td>
+              <a href="{{ url_for('se2026.generate', id=k.id) }}"
+                 class="btn btn-outline-{{ warna }} btn-sm me-1" title="Download SPK">
+                <i class="bi bi-file-earmark-word"></i>
+              </a>
+              <a href="{{ url_for('se2026.edit', id=k.id) }}"
+                 class="btn btn-outline-secondary btn-sm me-1" title="Edit">
+                <i class="bi bi-pencil"></i>
+              </a>
+              <form action="{{ url_for('se2026.hapus', id=k.id) }}" method="POST"
+                    class="d-inline"
+                    onsubmit="return confirm('Hapus kontrak {{ k.nama }}?')">
+                <button class="btn btn-outline-danger btn-sm" title="Hapus">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="7" class="text-center text-muted py-5">
+              <i class="bi bi-{{ ikon }} fs-2 d-block mb-2 opacity-25"></i>
+              Belum ada data {{ jenis }}.
+              <a href="{{ url_for('se2026.tambah', jenis=jenis.lower()) }}">Tambah manual</a>
+              atau import Excel.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Import Excel -->
+<div class="modal fade" id="modalImport" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title fw-semibold">
+          <i class="bi bi-file-earmark-excel me-2 text-success"></i>
+          Import Kontrak {{ jenis }} SE2026 dari Excel
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{{ url_for('se2026.import_excel', jenis=jenis.lower()) }}"
+            enctype="multipart/form-data">
+        <div class="modal-body">
+          <div class="alert alert-info" style="font-size:12px;">
+            <i class="bi bi-info-circle me-1"></i>
+            Gunakan template Excel yang tersedia.
+            <a href="{{ url_for('se2026.download_template', jenis=jenis.lower()) }}">
+              Download template {{ jenis }}
+            </a>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-medium" style="font-size:13px;">
+              Tanggal Penandatanganan SPK <span class="text-danger">*</span>
+            </label>
+            <input type="date" name="tanggal_spk" class="form-control"
+                   value="{{ today }}" required>
+            <div class="form-text">Semua kontrak dalam file ini akan menggunakan tanggal ini.</div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label fw-medium" style="font-size:13px;">
+              File Excel (.xlsx) <span class="text-danger">*</span>
+            </label>
+            <input type="file" name="file_excel" class="form-control" accept=".xlsx" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm"
+                  data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-success btn-sm">
+            <i class="bi bi-upload me-1"></i>Import Sekarang
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const inp = document.querySelector('#modalImport input[name="tanggal_spk"]');
+    if (inp && !inp.value) inp.value = '{{ today }}';
+  });
+</script>
+{% endblock %}

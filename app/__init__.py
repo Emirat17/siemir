@@ -20,8 +20,10 @@ def create_app():
 
     from app.routes import main
     from app.auth import auth
+    from app.se2026 import se2026
     app.register_blueprint(main)
     app.register_blueprint(auth)
+    app.register_blueprint(se2026)
 
     with app.app_context():
         db.create_all()
