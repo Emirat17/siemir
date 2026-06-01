@@ -262,7 +262,7 @@ def import_excel(jenis):
             return str(int(v)) if v == int(v) else str(v)
         return str(v).strip()
 
-    wb = openpyxl.load_workbook(file)
+    wb = openpyxl.load_workbook(file, data_only=True)
     ws = wb.active
     berhasil = gagal = 0
     pesan_error = []
