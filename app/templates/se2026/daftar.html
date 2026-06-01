@@ -225,12 +225,24 @@
             </a>
             — pastikan kolom <strong>Gelombang</strong> dan <strong>Kelas</strong> diisi.
           </div>
-          <div class="mb-3">
-            <label class="form-label fw-medium" style="font-size:13px;">
-              Tanggal Penandatanganan SPK <span class="text-danger">*</span>
-            </label>
-            <input type="date" name="tanggal_spk" class="form-control"
-                   value="{{ today }}" required>
+          <div class="row g-2 mb-3">
+            <div class="col-md-8">
+              <label class="form-label fw-medium" style="font-size:13px;">
+                Tanggal Penandatanganan SPK <span class="text-danger">*</span>
+              </label>
+              <input type="date" name="tanggal_spk" class="form-control"
+                     value="{{ today }}" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-medium" style="font-size:13px;">
+                Mulai dari Nomor
+              </label>
+              <input type="number" name="mulai_dari" class="form-control"
+                     value="1" min="1" placeholder="1">
+              <div class="form-text" style="font-size:11px;">
+                Ubah jika nomor harus mulai dari angka tertentu (mis. 5)
+              </div>
+            </div>
           </div>
           <div class="mb-2">
             <label class="form-label fw-medium" style="font-size:13px;">

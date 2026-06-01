@@ -34,19 +34,19 @@ def next_nomor(jenis_upper):
     return rec.terakhir
 
 
-def renomor_se2026(jenis_upper):
-    """Renomor ulang semua kontrak SE2026 secara berurutan mulai 001."""
+def renomor_se2026(jenis_upper, mulai_dari=1):
+    """Renomor ulang semua kontrak SE2026 mulai dari nomor tertentu."""
     kontraks = (KontrakSE2026.query
                 .filter_by(jenis=jenis_upper)
                 .order_by(KontrakSE2026.id).all())
-    for i, k in enumerate(kontraks, 1):
+    for i, k in enumerate(kontraks, mulai_dari):
         k.nomor_spk = f'{i:03d}'
+    akhir = mulai_dari - 1 + len(kontraks)
     rec = NomorUrut.query.filter_by(jenis=f'SE2026-{jenis_upper}').first()
     if rec:
-        rec.terakhir = len(kontraks)
+        rec.terakhir = akhir
     elif kontraks:
-        db.session.add(NomorUrut(jenis=f'SE2026-{jenis_upper}',
-                                 terakhir=len(kontraks)))
+        db.session.add(NomorUrut(jenis=f'SE2026-{jenis_upper}', terakhir=akhir))
 
 
 def kontrak_ke_data(k):
@@ -297,8 +297,11 @@ def import_excel(jenis):
         flash('Upload file Excel (.xlsx) diperlukan.', 'danger')
         return redirect(url_for('se2026.daftar', jenis=jenis.lower()))
 
-    tgl_str = request.form.get('tanggal_spk', date.today().isoformat())
+    tgl_str     = request.form.get('tanggal_spk', date.today().isoformat())
     tanggal_spk = date.fromisoformat(tgl_str)
+    mulai_dari  = request.form.get('mulai_dari', 1, type=int)
+    if not mulai_dari or mulai_dari < 1:
+        mulai_dari = 1
 
     def xval(row, idx, default=0):
         v = row[idx] if idx < len(row) else None
@@ -400,7 +403,7 @@ def import_excel(jenis):
             pesan_error.append(f'Baris {baris} ({nama}): {e}')
 
     if berhasil:
-        renomor_se2026(jenis_upper)   # renomor semua dari 001 (melanjutkan dari data yg ada)
+        renomor_se2026(jenis_upper, mulai_dari=mulai_dari)
         db.session.commit()
 
     msg = f'Import selesai: {berhasil} berhasil'
