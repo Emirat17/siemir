@@ -49,7 +49,7 @@
             <td class="px-3 text-muted">{{ loop.index }}</td>
             <td class="fw-medium font-monospace" style="font-size:11px;">
               {% if k.nomor_spk %}
-                B-{{ k.nomor_spk }}/SPK-SE2026/1410/SS.330/2026
+                B-{{ k.nomor_spk }}/SPK-SE2026/1410/{{ 'SS.330' if jenis=='PPL' else 'SS.340' }}/2026
               {% else %}-{% endif %}
             </td>
             <td class="fw-medium">{{ k.nama }}</td>
