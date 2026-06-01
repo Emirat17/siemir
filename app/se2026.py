@@ -232,68 +232,105 @@ def import_excel(jenis):
     tgl_str = request.form.get('tanggal_spk', date.today().isoformat())
     tanggal_spk = date.fromisoformat(tgl_str)
 
+    # Helper: ambil nilai sel dengan aman
+    def xval(row, idx, default=0):
+        v = row[idx] if idx < len(row) else None
+        return v if v is not None else default
+
+    def xfloat(row, idx):
+        v = xval(row, idx, 0)
+        try:
+            if isinstance(v, str):
+                v = v.replace('.', '').replace(',', '.')
+            return float(v)
+        except (ValueError, TypeError):
+            return 0.0
+
+    def xint(row, idx):
+        v = xval(row, idx, 0)
+        try:
+            return int(float(v))
+        except (ValueError, TypeError):
+            return 0
+
+    def xstr(row, idx):
+        """Konversi nilai sel ke string; float integer (1410010.0) → '1410010'."""
+        v = xval(row, idx, '')
+        if v is None or v == '':
+            return ''
+        if isinstance(v, float):
+            return str(int(v)) if v == int(v) else str(v)
+        return str(v).strip()
+
     wb = openpyxl.load_workbook(file)
     ws = wb.active
-    berhasil = skip = 0
+    berhasil = gagal = 0
+    pesan_error = []
 
-    for row in ws.iter_rows(min_row=2, values_only=True):
-        if not row[0]:
-            continue
-        nama = str(row[0]).strip()
+    for baris, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+        nama = xstr(row, 0)
         if not nama:
-            skip += 1
             continue
+        try:
+            n = next_nomor(jenis_upper)
+            k = KontrakSE2026(
+                jenis=jenis_upper,
+                nama=nama,
+                nomor_spk=f'{n:03d}',
+                alamat=xstr(row, 1),
+                tanggal_spk=tanggal_spk,
+                total_honor=xfloat(row, 2),
+                honor_1_ob=xfloat(row, 3),
+                honor_1_5_ob=xfloat(row, 4),
+                total_ganti_rugi=xfloat(row, 5),
+                jumlah_sls=xint(row, 6),
+                jumlah_usaha=xint(row, 7),
+                jumlah_keluarga=xint(row, 8),
+            )
+            db.session.add(k)
+            db.session.flush()
 
-        def val(idx, default=0):
-            return row[idx] if idx < len(row) and row[idx] is not None else default
+            if jenis_upper == 'PPL':
+                for i in range(8):
+                    base = 9 + i * 4
+                    kec  = xstr(row, base)
+                    desa = xstr(row, base + 1)
+                    sls  = xint(row, base + 2)
+                    kel  = xint(row, base + 3)
+                    if kec or desa:
+                        db.session.add(WilayahSE2026(
+                            kontrak_id=k.id, urutan=i + 1,
+                            kode_kecamatan=kec, kode_desa=desa,
+                            jumlah_sls=sls, jumlah_keluarga=kel,
+                        ))
+            else:  # PML
+                for i in range(8):
+                    base     = 9 + i * 4
+                    nama_ppl = xstr(row, base)
+                    kec      = xstr(row, base + 1)
+                    desa     = xstr(row, base + 2)
+                    sls      = xint(row, base + 3)
+                    if nama_ppl:
+                        db.session.add(PPLDiwasiSE2026(
+                            kontrak_id=k.id, urutan=i + 1,
+                            nama_ppl=nama_ppl, kode_kecamatan=kec,
+                            kode_desa=desa, jumlah_sls=sls,
+                        ))
+            berhasil += 1
 
-        n = next_nomor(jenis_upper)
-        k = KontrakSE2026(
-            jenis=jenis_upper, nama=nama,
-            nomor_spk=f'{n:03d}',
-            alamat=str(val(1, '')).strip(),
-            tanggal_spk=tanggal_spk,
-            total_honor=float(val(2)),
-            honor_1_ob=float(val(3)),
-            honor_1_5_ob=float(val(4)),
-            total_ganti_rugi=float(val(5)),
-            jumlah_sls=int(val(6)),
-            jumlah_usaha=int(val(7)),
-            jumlah_keluarga=int(val(8)),
-        )
-        db.session.add(k)
-        db.session.flush()
+        except Exception as e:
+            db.session.rollback()
+            gagal += 1
+            pesan_error.append(f'Baris {baris} ({nama}): {e}')
 
-        if jenis_upper == 'PPL':
-            for i in range(8):  # 8 baris wilayah sesuai template terbaru
-                base = 9 + i * 4
-                kec  = str(val(base,   '')).strip()
-                desa = str(val(base+1, '')).strip()
-                sls  = int(val(base+2, 0))
-                kel  = int(val(base+3, 0))
-                if kec or desa:
-                    db.session.add(WilayahSE2026(
-                        kontrak_id=k.id, urutan=i+1,
-                        kode_kecamatan=kec, kode_desa=desa,
-                        jumlah_sls=sls, jumlah_keluarga=kel,
-                    ))
-        else:  # PML
-            for i in range(8):
-                base     = 9 + i * 4
-                nama_ppl = str(val(base, '')).strip()
-                kec      = str(val(base+1, '')).strip()
-                desa     = str(val(base+2, '')).strip()
-                sls      = int(val(base+3, 0))
-                if nama_ppl:
-                    db.session.add(PPLDiwasiSE2026(
-                        kontrak_id=k.id, urutan=i+1,
-                        nama_ppl=nama_ppl, kode_kecamatan=kec,
-                        kode_desa=desa, jumlah_sls=sls,
-                    ))
-        berhasil += 1
-
-    db.session.commit()
-    flash(f'Import selesai: {berhasil} kontrak {jenis_upper} SE2026 berhasil disimpan.', 'success')
+    if berhasil:
+        db.session.commit()
+    msg = f'Import selesai: {berhasil} berhasil'
+    if gagal:
+        msg += f', {gagal} gagal'
+    flash(msg + '.', 'success' if not gagal else 'warning')
+    for pe in pesan_error[:3]:   # tampilkan maks 3 error detail
+        flash(pe, 'danger')
     return redirect(url_for('se2026.daftar', jenis=jenis.lower()))
 
 
