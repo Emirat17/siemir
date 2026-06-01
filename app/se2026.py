@@ -337,17 +337,18 @@ def import_excel(jenis):
         nama = xstr(row, 0)
         if not nama:
             continue
+
+        # Gunakan SAVEPOINT per baris — kegagalan 1 baris tidak menghapus baris lain
+        sp = db.session.begin_nested()
         try:
-            # Kolom 9 = Gelombang, 10 = Kelas
             gel_val = xval(row, 9, None)
-            gel = int(float(gel_val)) if gel_val not in (None, '', 0) else None
-            kelas_val = xstr(row, 10)
-            kelas = kelas_val if kelas_val else None
+            gel     = int(float(gel_val)) if gel_val not in (None, '', 0) else None
+            kelas   = xstr(row, 10) or None
 
             k = KontrakSE2026(
                 jenis=jenis_upper,
                 nama=nama,
-                nomor_spk='000',          # sementara; renomor di akhir
+                nomor_spk='000',
                 alamat=xstr(row, 1),
                 tanggal_spk=tanggal_spk,
                 total_honor=xfloat(row, 2),
@@ -366,7 +367,6 @@ def import_excel(jenis):
             if jenis_upper == 'PPL':
                 for i in range(8):
                     base = WILAYAH_BASE + i * 4
-                    # Urutan: Kode Desa | Jml SLS | Jml Keluarga | Kode Kecamatan
                     desa = xstr(row, base)
                     sls  = xint(row, base + 1)
                     kel  = xint(row, base + 2)
@@ -390,16 +390,17 @@ def import_excel(jenis):
                             nama_ppl=nama_ppl, kode_kecamatan=kec,
                             kode_desa=desa, jumlah_sls=sls,
                         ))
+
+            sp.commit()   # release savepoint — baris ini berhasil
             berhasil += 1
 
         except Exception as e:
-            db.session.rollback()
+            sp.rollback()  # hanya rollback baris ini, baris lain tetap aman
             gagal += 1
             pesan_error.append(f'Baris {baris} ({nama}): {e}')
 
     if berhasil:
-        db.session.flush()
-        renomor_se2026(jenis_upper)   # renomor dari 001 setelah semua data masuk
+        renomor_se2026(jenis_upper)   # renomor semua dari 001 (melanjutkan dari data yg ada)
         db.session.commit()
 
     msg = f'Import selesai: {berhasil} berhasil'
