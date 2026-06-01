@@ -27,9 +27,41 @@ def create_app():
 
     with app.app_context():
         db.create_all()
+        _migrasi_kolom_baru()
         _seed_default_users()
 
     return app
+
+def _migrasi_kolom_baru():
+    """Tambah kolom baru ke tabel yang sudah ada jika belum ada (safe migration)."""
+    from sqlalchemy import text, inspect as sa_inspect
+    inspector = sa_inspect(db.engine)
+
+    migrasi = [
+        # (nama_tabel, nama_kolom, definisi_kolom)
+        ('kontrak_se2026', 'gelombang', 'INTEGER'),
+        ('kontrak_se2026', 'kelas',     'VARCHAR(20)'),
+        ('wilayah_se2026',      'kode_kecamatan', 'VARCHAR(50)'),
+        ('wilayah_se2026',      'kode_desa',      'VARCHAR(50)'),
+        ('ppl_diawasi_se2026',  'kode_kecamatan', 'VARCHAR(50)'),
+        ('ppl_diawasi_se2026',  'kode_desa',      'VARCHAR(50)'),
+    ]
+
+    tables = inspector.get_table_names()
+    with db.engine.begin() as conn:
+        for tabel, kolom, tipe in migrasi:
+            if tabel not in tables:
+                continue
+            cols = [c['name'] for c in inspector.get_columns(tabel)]
+            if kolom not in cols:
+                try:
+                    conn.execute(text(
+                        f'ALTER TABLE "{tabel}" ADD COLUMN "{kolom}" {tipe}'
+                    ))
+                    print(f'✅ Migrasi: {tabel}.{kolom} ({tipe}) ditambahkan.')
+                except Exception as e:
+                    print(f'⚠️  Migrasi {tabel}.{kolom}: {e}')
+
 
 def _seed_default_users():
     """Buat akun default jika belum ada."""
