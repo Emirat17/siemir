@@ -411,22 +411,29 @@ def generate_spk_se2026(data, template_path):
     jml_usaha  = int(data.get('jumlah_usaha', 0) or 0)
     jml_kel    = int(data.get('jumlah_keluarga', 0) or 0)
 
+    th   = data.get('total_honor',      0) or 0
+    ob1  = data.get('honor_1_ob',       0) or 0
+    ob15 = data.get('honor_1_5_ob',     0) or 0
+    tgr  = data.get('total_ganti_rugi', 0) or 0
+
     var_map = {
-        # Pola gabungan harus didahulukan sebelum placeholder tunggal
-        '<<tanggal>>-<<bulan>>-<<tahun>>': tanggal.strftime('%d-%m-%Y'),
+        # Pola gabungan didahulukan: (<<tanggal>>-<<bulan>>-YYYY) → DD-MM-YYYY
+        f'<<tanggal>>-<<bulan>>-{tanggal.year}': tanggal.strftime('%d-%m-%Y'),
         '<<Nomor SPK>>':                 data.get('nomor_spk', ''),
         '<<hari>>':                      fmt_hari(tanggal),
-        '<<tanggal>>':                   fmt_tgl_terbilang(tanggal),   # "dua", "tiga belas", dst.
+        '<<tanggal>>':                   fmt_tgl_terbilang(tanggal),
         '<<bulan>>':                     fmt_bulan_nama(tanggal),
         '<<tahun>>':                     fmt_tahun_terbilang(tanggal),
         '<<nama>>':                      data.get('nama', ''),
         '<<alamat>>':                    data.get('alamat', ''),
-        '<<Total Honor>>':               f"Rp{fmt_rp(data.get('total_honor', 0))},-",
-        '<<Total Honor Terbilang>>':     terbilang_rupiah(data.get('total_honor', 0)),
-        '<<Honor 1 OB>>':                f"Rp{fmt_rp(data.get('honor_1_ob', 0))},-",
-        '<<Honor 1,5 OB>>':              f"Rp{fmt_rp(data.get('honor_1_5_ob', 0))},-",
-        '<<Total Ganti Rugi>>':          f"Rp{fmt_rp(data.get('total_ganti_rugi', 0))},-",
-        '<<Total Ganti Rugi Terbilang>>':terbilang_rupiah(data.get('total_ganti_rugi', 0)),
+        # Template sudah ada "Rp " sebelum placeholder dan ",00" sesudahnya
+        # → isi hanya angka saja (mis. 2.500.000)
+        '<<Total Honor>>':               fmt_rp(th),
+        '<<Total Honor Terbilang>>':     terbilang_rupiah(th),
+        '<<Honor 1 OB>>':                fmt_rp(ob1),
+        '<<Honor 1,5 OB>>':              fmt_rp(ob15),
+        '<<Total Ganti Rugi>>':          fmt_rp(tgr),
+        '<<Total Ganti Rugi Terbilang>>':terbilang_rupiah(tgr),
         '<<Jumlah SLS>>':                str(jml_sls),
         '<<40% dari Jumlah SLS>>':       str(round(jml_sls   * 0.4)),
         '<<60% dari Jumlah SLS>>':       str(round(jml_sls   * 0.6)),
