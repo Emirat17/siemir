@@ -113,31 +113,65 @@
   </span>
 </div>
 
-<div class="card border-0 shadow-sm">
-  <div class="card-body p-0">
-    <div class="table-responsive">
-      <table class="table table-hover mb-0" style="font-size:12.5px;">
-        <thead style="background:#f8f9fb;">
-          <tr>
-            <th class="px-3" style="width:50px;">No.</th>
-            <th>Nomor SPK</th>
-            <th>Nama Petugas</th>
-            <th class="text-center">Gel.</th>
-            <th class="text-center">Kelas</th>
-            <th>Tanggal SPK</th>
-            <th class="text-end">Total Honor</th>
-            {% if jenis == 'PPL' %}
-            <th class="text-center">Wilayah</th>
-            {% else %}
-            <th class="text-center">PPL Diawasi</th>
-            {% endif %}
-            <th style="width:130px;"></th>
-          </tr>
-        </thead>
-        <tbody>
+<!-- Form hapus massal -->
+<form id="formHapusMassal"
+      action="{{ url_for('se2026.hapus_massal', jenis=jenis.lower()) }}"
+      method="POST">
+  <input type="hidden" name="mulai_dari_renomor" value="1">
+  <input type="hidden" name="gel_f"   value="{{ gel_f or '' }}">
+  <input type="hidden" name="kelas_f" value="{{ kelas_f or '' }}">
+
+  <!-- Toolbar hapus massal (muncul saat ada yang dicentang) -->
+  <div id="barHapus" class="d-none alert alert-danger py-2 px-3 mb-2 d-flex align-items-center gap-3"
+       style="font-size:13px;">
+    <span id="lblTerpilih" class="fw-medium"></span>
+    <button type="submit" class="btn btn-danger btn-sm"
+            onclick="return confirm('Hapus semua kontrak yang dipilih?')">
+      <i class="bi bi-trash me-1"></i>Hapus Terpilih
+    </button>
+    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="batalPilih()">
+      Batalkan Pilihan
+    </button>
+    <div class="ms-auto d-flex align-items-center gap-2" style="font-size:12px;">
+      <label class="mb-0 text-muted">Nomor awal setelah hapus:</label>
+      <input type="number" name="mulai_dari_renomor" class="form-control form-control-sm"
+             style="width:70px;" value="1" min="1">
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0" style="font-size:12.5px;">
+          <thead style="background:#f8f9fb;">
+            <tr>
+              <th class="px-3" style="width:40px;">
+                <input type="checkbox" id="cbAll" class="form-check-input"
+                       onchange="toggleAll(this)" title="Pilih semua">
+              </th>
+              <th style="width:40px;" class="text-muted">No.</th>
+              <th>Nomor SPK</th>
+              <th>Nama Petugas</th>
+              <th class="text-center">Gel.</th>
+              <th class="text-center">Kelas</th>
+              <th>Tanggal SPK</th>
+              <th class="text-end">Total Honor</th>
+              {% if jenis == 'PPL' %}
+              <th class="text-center">Wilayah</th>
+              {% else %}
+              <th class="text-center">PPL Diawasi</th>
+              {% endif %}
+              <th style="width:130px;"></th>
+            </tr>
+          </thead>
+          <tbody>
           {% for k in kontrak_list %}
           <tr>
-            <td class="px-3 text-muted">{{ loop.index }}</td>
+            <td class="px-3">
+              <input type="checkbox" name="ids" value="{{ k.id }}"
+                     class="form-check-input cb-row" onchange="updateBar()">
+            </td>
+            <td class="text-muted">{{ loop.index }}</td>
             <td class="fw-medium font-monospace" style="font-size:11px;">
               {% if k.nomor_spk %}
                 B-{{ k.nomor_spk }}/SPK-SE2026/1410/{{ 'SS.330' if jenis=='PPL' else 'SS.340' }}/2026
@@ -191,17 +225,31 @@
           </tr>
           {% else %}
           <tr>
-            <td colspan="9" class="text-center text-muted py-5">
+            <td colspan="10" class="text-center text-muted py-5">
               <i class="bi bi-{{ ikon }} fs-2 d-block mb-2 opacity-25"></i>
               Belum ada data {{ jenis }} sesuai filter.
             </td>
           </tr>
           {% endfor %}
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
-</div>
+
+  {% if kontrak_list %}
+  <!-- Tombol Hapus Semua -->
+  <div class="mt-2 text-end">
+    <button type="submit" name="hapus_semua" value="1"
+            class="btn btn-outline-danger btn-sm"
+            onclick="return confirm('Hapus SEMUA {{ kontrak_list|length }} kontrak {{ jenis }} yang tampil saat ini?')">
+      <i class="bi bi-trash3 me-1"></i>
+      Hapus Semua yang Tampil ({{ kontrak_list|length }})
+    </button>
+  </div>
+  {% endif %}
+
+</form>
 
 <!-- Modal Import Excel -->
 <div class="modal fade" id="modalImport" tabindex="-1">
@@ -270,5 +318,34 @@
     const inp = document.querySelector('#modalImport input[name="tanggal_spk"]');
     if (inp && !inp.value) inp.value = '{{ today }}';
   });
+
+  function updateBar() {
+    const cbs    = document.querySelectorAll('.cb-row:checked');
+    const bar    = document.getElementById('barHapus');
+    const lbl    = document.getElementById('lblTerpilih');
+    const cbAll  = document.getElementById('cbAll');
+    const total  = document.querySelectorAll('.cb-row').length;
+    if (cbs.length > 0) {
+      bar.classList.remove('d-none');
+      bar.classList.add('d-flex');
+      lbl.textContent = cbs.length + ' kontrak dipilih';
+    } else {
+      bar.classList.add('d-none');
+      bar.classList.remove('d-flex');
+    }
+    cbAll.indeterminate = cbs.length > 0 && cbs.length < total;
+    cbAll.checked = cbs.length === total && total > 0;
+  }
+
+  function toggleAll(cb) {
+    document.querySelectorAll('.cb-row').forEach(c => c.checked = cb.checked);
+    updateBar();
+  }
+
+  function batalPilih() {
+    document.querySelectorAll('.cb-row').forEach(c => c.checked = false);
+    document.getElementById('cbAll').checked = false;
+    updateBar();
+  }
 </script>
 {% endblock %}

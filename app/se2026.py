@@ -236,10 +236,47 @@ def hapus(id):
     nama = k.nama
     db.session.delete(k)
     db.session.flush()
-    renomor_se2026(jenis_upper)   # nomor mundur otomatis
+    renomor_se2026(jenis_upper)
     db.session.commit()
     flash(f'Kontrak SE2026 {nama} dihapus. Nomor diperbarui otomatis.', 'warning')
     return redirect(url_for('se2026.daftar', jenis=jenis_upper.lower()))
+
+
+@se2026.route('/<jenis>/hapus-massal', methods=['POST'])
+@login_required
+@role_required('admin_kabupaten', 'admin_fungsi')
+def hapus_massal(jenis):
+    jenis_upper = jenis.upper()
+    ids_str = request.form.getlist('ids')          # dari checkbox
+    hapus_semua = request.form.get('hapus_semua')  # dari tombol Hapus Semua
+
+    if hapus_semua:
+        q = KontrakSE2026.query.filter_by(jenis=jenis_upper)
+        # terapkan filter aktif agar Hapus Semua hanya hapus yang terfilter
+        gel_f   = request.form.get('gel_f', type=int)
+        kelas_f = request.form.get('kelas_f', '').strip()
+        if gel_f:
+            q = q.filter_by(gelombang=gel_f)
+        if kelas_f:
+            q = q.filter_by(kelas=kelas_f)
+        dihapus = q.count()
+        q.delete(synchronize_session=False)
+    else:
+        if not ids_str:
+            flash('Pilih minimal satu kontrak untuk dihapus.', 'warning')
+            return redirect(url_for('se2026.daftar', jenis=jenis))
+        ids = [int(i) for i in ids_str if i.isdigit()]
+        dihapus = KontrakSE2026.query.filter(
+            KontrakSE2026.id.in_(ids),
+            KontrakSE2026.jenis == jenis_upper,
+        ).delete(synchronize_session=False)
+
+    db.session.flush()
+    mulai_dari = request.form.get('mulai_dari_renomor', 1, type=int) or 1
+    renomor_se2026(jenis_upper, mulai_dari=mulai_dari)
+    db.session.commit()
+    flash(f'{dihapus} kontrak {jenis_upper} berhasil dihapus. Nomor diperbarui.', 'warning')
+    return redirect(url_for('se2026.daftar', jenis=jenis))
 
 
 @se2026.route('/<int:id>/spk.docx')
