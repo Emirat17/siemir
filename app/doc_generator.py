@@ -470,17 +470,90 @@ def generate_spk_se2026(data, template_path):
 
 
 # ── MERGE DOKUMEN ────────────────────────────────────────────────
+def _get_numbering_el(doc):
+    """Ambil elemen <w:numbering> dari dokumen, atau None jika tidak ada."""
+    try:
+        return doc.part.numbering_part.element
+    except Exception:
+        return None
+
+
+def _remap_numbering(master_numbering, src_numbering, src_body):
+    """
+    Salin definisi numbering dari dokumen sumber ke master dengan ID baru
+    yang unik, lalu remap referensi <w:numId> di body sumber.
+
+    Akibatnya tiap dokumen punya instance daftar sendiri → penomoran
+    tabel & heading restart dari 1 / I, tidak melanjutkan dokumen lain.
+    """
+    if src_numbering is None or master_numbering is None:
+        return
+
+    VAL   = qn('w:val')
+    A_ID  = qn('w:abstractNumId')
+    N_ID  = qn('w:numId')
+
+    # ID maksimum yang sedang ada di master
+    max_abs = 0
+    for an in master_numbering.findall(qn('w:abstractNum')):
+        try: max_abs = max(max_abs, int(an.get(A_ID)))
+        except (TypeError, ValueError): pass
+    max_num = 0
+    for nm in master_numbering.findall(qn('w:num')):
+        try: max_num = max(max_num, int(nm.get(N_ID)))
+        except (TypeError, ValueError): pass
+
+    # Salin abstractNum dengan abstractNumId baru
+    abs_map   = {}
+    next_abs  = max_abs + 1
+    first_num = master_numbering.find(qn('w:num'))   # abstractNum harus sebelum num
+    for an in src_numbering.findall(qn('w:abstractNum')):
+        old = an.get(A_ID)
+        new_an = copy.deepcopy(an)
+        new_an.set(A_ID, str(next_abs))
+        # Hapus nsid agar Word tidak menggabungkan list dengan master
+        nsid = new_an.find(qn('w:nsid'))
+        if nsid is not None:
+            new_an.remove(nsid)
+        abs_map[old] = str(next_abs)
+        if first_num is not None:
+            first_num.addprevious(new_an)
+        else:
+            master_numbering.append(new_an)
+        next_abs += 1
+
+    # Salin num dengan numId baru, update referensi abstractNumId
+    num_map  = {}
+    next_num = max_num + 1
+    for nm in src_numbering.findall(qn('w:num')):
+        old = nm.get(N_ID)
+        new_nm = copy.deepcopy(nm)
+        new_nm.set(N_ID, str(next_num))
+        ref = new_nm.find(qn('w:abstractNumId'))
+        if ref is not None and ref.get(VAL) in abs_map:
+            ref.set(VAL, abs_map[ref.get(VAL)])
+        num_map[old] = str(next_num)
+        master_numbering.append(new_nm)
+        next_num += 1
+
+    # Remap referensi <w:numId w:val="..."> di body sumber (termasuk sel tabel)
+    for numId_el in src_body.iter(N_ID):
+        v = numId_el.get(VAL)
+        if v in num_map:
+            numId_el.set(VAL, num_map[v])
+
+
 def merge_docx_list(docx_bytes_list):
     """
-    Gabungkan beberapa .docx menjadi satu, mempertahankan orientasi
-    halaman (portrait/landscape) tiap dokumen.
+    Gabungkan beberapa .docx menjadi satu file.
 
-    Strategi:
-    - sectPr final master dipindahkan ke dalam paragraf kosong (inner
-      section break) agar orientasi landscape lampiran tetap terjaga.
-    - sectPr final dokumen sumber menjadi sectPr final master yang baru.
-    - Tidak ada explicit page break tambahan — section break sudah
-      menyebabkan perpindahan halaman sehingga tidak ada halaman kosong.
+    Menangani:
+    - Penomoran daftar (numId) di-remap per dokumen → tabel & heading
+      restart dari 1 / I di setiap dokumen (tidak melanjutkan nomor
+      dokumen sebelumnya).
+    - Orientasi halaman (portrait/landscape) tiap dokumen dipertahankan
+      lewat section break dari sectPr masing-masing dokumen.
+    - Tidak ada halaman kosong ganda antar dokumen.
     """
     if not docx_bytes_list:
         return None
@@ -489,15 +562,19 @@ def merge_docx_list(docx_bytes_list):
 
     TAG_SECT = qn('w:sectPr')
 
-    master      = Document(io.BytesIO(docx_bytes_list[0]))
-    master_body = master.element.body
+    master           = Document(io.BytesIO(docx_bytes_list[0]))
+    master_body      = master.element.body
+    master_numbering = _get_numbering_el(master)
 
     for docx_bytes in docx_bytes_list[1:]:
         src      = Document(io.BytesIO(docx_bytes))
         src_body = src.element.body
 
-        # Pindahkan sectPr final master ke paragraf kosong (inner section break).
-        # Ini mempertahankan orientasi landscape halaman lampiran dokumen sebelumnya.
+        # Remap numbering dokumen ini agar penomoran restart
+        _remap_numbering(master_numbering, _get_numbering_el(src), src_body)
+
+        # Pindahkan sectPr final master ke paragraf kosong (inner section break)
+        # agar orientasi landscape lampiran dokumen sebelumnya tetap terjaga.
         master_final = master_body.find(TAG_SECT)
         if master_final is not None:
             master_body.remove(master_final)
@@ -507,8 +584,7 @@ def merge_docx_list(docx_bytes_list):
             brk_p.insert(0, brk_pPr)
             master_body.append(brk_p)
 
-        # Salin semua elemen src (termasuk sectPr finalnya) ke master.
-        # sectPr final src menjadi sectPr final master yang baru.
+        # Salin seluruh elemen body sumber (termasuk sectPr finalnya) ke master
         for el in src_body:
             master_body.append(copy.deepcopy(el))
 
