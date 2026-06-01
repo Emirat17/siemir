@@ -293,10 +293,11 @@ def import_excel(jenis):
             if jenis_upper == 'PPL':
                 for i in range(8):
                     base = 9 + i * 4
-                    kec  = xstr(row, base)
-                    desa = xstr(row, base + 1)
-                    sls  = xint(row, base + 2)
-                    kel  = xint(row, base + 3)
+                    # Urutan kolom Excel PPL: Kode Desa | Jml SLS | Jml Keluarga | Kode Kecamatan
+                    desa = xstr(row, base)
+                    sls  = xint(row, base + 1)
+                    kel  = xint(row, base + 2)
+                    kec  = xstr(row, base + 3)
                     if kec or desa:
                         db.session.add(WilayahSE2026(
                             kontrak_id=k.id, urutan=i + 1,
@@ -370,10 +371,10 @@ def download_template(jenis):
     if jenis_upper == 'PPL':
         for s in range(1, 9):  # 8 wilayah
             base = 9 + (s-1)*4
-            for j, h in enumerate([f'Kode Kecamatan', f'Kode Desa',
-                                    f'Jml SLS', f'Jml Keluarga']):
+            # Urutan: Kode Desa | Jml SLS | Jml Keluarga | Kode Kecamatan
+            for j, h in enumerate(['Kode Desa', 'Jml SLS', 'Jml Keluarga', 'Kode Kecamatan']):
                 hdr(base+j, f'Wilayah {s}\n{h}', fill=muda, font=f_biru)
-        contoh_extra = ['1410010', '1410010001', 5, 20] + [''] * 28
+        contoh_extra = ['1410010001', 5, 20, '1410010'] + [''] * 28
     else:
         for s in range(1, 9):
             base = 9 + (s-1)*4

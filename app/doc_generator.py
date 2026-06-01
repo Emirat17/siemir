@@ -74,18 +74,34 @@ def fmt_rp(n):
 # ── GANTI TEKS ──────────────────────────────────────────────────
 def ganti_paragraf(p, var_map):
     """
-    Gabung teks semua run, terapkan penggantian variabel,
-    simpan hasilnya ke run pertama dan kosongkan run lainnya.
-    Metode ini aman untuk multi-run yang dihasilkan Word.
+    Ganti placeholder <<...>> di paragraf sambil mempertahankan format per-run.
+    Strategi: coba ganti per-run dulu (format bold/italic tetap terjaga).
+    Fallback ke merge-run hanya jika placeholder terpecah di beberapa run.
     """
     full = ''.join(r.text for r in p.runs)
-    baru = full
-    for var, val in var_map.items():
-        baru = baru.replace(var, str(val) if val is not None else '')
-    if baru != full and p.runs:
-        p.runs[0].text = baru
-        for r in p.runs[1:]:
-            r.text = ''
+    if not any(var in full for var in var_map):
+        return  # tidak ada placeholder, skip
+
+    # Coba ganti per-run (format tiap run tetap utuh)
+    diganti = False
+    for r in p.runs:
+        old = r.text
+        new = old
+        for var, val in var_map.items():
+            new = new.replace(var, str(val) if val is not None else '')
+        if new != old:
+            r.text = new
+            diganti = True
+
+    if not diganti:
+        # Placeholder terpecah antar run — fallback: merge ke run pertama
+        baru = full
+        for var, val in var_map.items():
+            baru = baru.replace(var, str(val) if val is not None else '')
+        if baru != full and p.runs:
+            p.runs[0].text = baru
+            for r in p.runs[1:]:
+                r.text = ''
 
 def ganti_doc(doc, var_map):
     """Ganti variabel di seluruh paragraf dan tabel dokumen."""
@@ -377,9 +393,9 @@ def generate_spk_se2026(data, template_path):
     var_map = {
         '<<Nomor SPK>>':                 data.get('nomor_spk', ''),
         '<<hari>>':                      fmt_hari(tanggal),
-        '<<tanggal>>':                   fmt_tgl_terbilang(tanggal),
+        '<<tanggal>>':                   tanggal.strftime('%d-%m-%Y'),
         '<<bulan>>':                     fmt_bulan_nama(tanggal),
-        '<<tahun>>':                     fmt_tahun_terbilang(tanggal),
+        '<<tahun>>':                     str(tanggal.year),
         '<<nama>>':                      data.get('nama', ''),
         '<<alamat>>':                    data.get('alamat', ''),
         '<<Total Honor>>':               f"Rp{fmt_rp(data.get('total_honor', 0))},-",
