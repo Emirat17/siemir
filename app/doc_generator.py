@@ -452,9 +452,9 @@ def generate_spk_se2026(data, template_path):
         var_map[f'<<Jumlah SLS {i}>>']      = str(w.get('jumlah_sls', '') or '')
         var_map[f'<<Jumlah Keluarga {i}>>'] = str(w.get('jumlah_keluarga', '') or '')
 
-    # Daftar PPL yang diawasi PML (8 slot)
+    # Daftar PPL yang diawasi PML (12 slot sesuai template terbaru)
     ppl_list = data.get('ppl_list', [])
-    for i in range(1, 9):
+    for i in range(1, 13):
         p = ppl_list[i-1] if i <= len(ppl_list) else {}
         var_map[f'<<Nama PPL {i}>>']           = p.get('nama_ppl', '')
         var_map[f'<<Kode Kecamatan PPL {i}>>'] = p.get('kode_kecamatan', '')
