@@ -89,7 +89,7 @@ def simpan_wilayah(kontrak_id, form):
 
 
 def simpan_ppl_diawasi(kontrak_id, form):
-    for i in range(1, 13):   # 12 PPL diawasi sesuai template terbaru
+    for i in range(1, 18):   # 17 PPL diawasi sesuai template terbaru
         nama = form.get(f'nama_ppl_{i}', '').strip()
         if nama:
             db.session.add(PPLDiwasiSE2026(
@@ -437,7 +437,7 @@ def import_excel(jenis):
                             jumlah_sls=sls, jumlah_keluarga=kel,
                         ))
             else:
-                for i in range(12):   # 12 PPL diawasi sesuai template terbaru
+                for i in range(17):   # 17 PPL diawasi sesuai template terbaru
                     base     = WILAYAH_BASE + i * 4
                     nama_ppl = xstr(row, base)
                     kec      = xstr(row, base + 1)
@@ -518,12 +518,12 @@ def download_template(jenis):
                 hdr(base+j, f'Wilayah {s}\n{h}', fill=muda, font=f_biru)
         contoh_extra = ['1410010001', 5, 20, '1410010'] + [''] * 28
     else:
-        for s in range(1, 13):   # 12 PPL diawasi
+        for s in range(1, 18):   # 17 PPL diawasi
             base = WILAYAH_BASE + (s-1)*4 + 1
             for j, h in enumerate([f'Nama PPL {s}', f'Kode Kec {s}',
                                     f'Kode Desa {s}', f'Jml SLS {s}']):
                 hdr(base+j, h, fill=muda, font=f_biru)
-        contoh_extra = ['Budi Santoso', '1410010', '1410010001', 3] + [''] * 44
+        contoh_extra = ['Budi Santoso', '1410010', '1410010001', 3] + [''] * 64
 
     ws.row_dimensions[1].height = 42
 
