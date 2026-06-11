@@ -435,7 +435,10 @@ def generate_spk_se2026(data, template_path):
         '<<Total Ganti Rugi>>':          fmt_rp(tgr),
         '<<Total Ganti Rugi Terbilang>>':terbilang_rupiah(tgr),
         '<<Jumlah SLS>>':                str(jml_sls),
-        '<<40% dari Jumlah SLS>>':       str(round(jml_sls   * 0.4)),
+        '<<40% dari Jumlah SLS>>':       str(round(jml_sls * 0.4)),
+        '<<100% dari Jumlah SLS>>':      str(jml_sls),
+        # Placeholder lama (60%/usaha/keluarga) dipertahankan untuk kompatibilitas
+        # template versi sebelumnya; no-op jika placeholder tidak ada di template.
         '<<60% dari Jumlah SLS>>':       str(round(jml_sls   * 0.6)),
         '<<40% dari Jumlah Usaha>>':     str(round(jml_usaha * 0.4)),
         '<<60% dari Jumlah Usaha>>':     str(round(jml_usaha * 0.6)),
