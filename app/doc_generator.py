@@ -190,100 +190,68 @@ def generate_spk(kontrak, template_path):
         '<<Total Honor>>':           fmt_rp(kontrak['total_honor']),
         '<<Total Honor Terbilang>>': terbilang_rupiah(kontrak['total_honor']),
         '<<Total Honor Terbliang>>': terbilang_rupiah(kontrak['total_honor']),
+        # Template sudah ada "Rp. " sebelum placeholder → isi angka saja
+        '<<Ganti Rugi>>':            fmt_rp(kontrak.get('total_ganti_rugi', 0) or 0),
     }
     ganti_doc(doc, var_map)
 
     # ── Isi tabel lampiran kegiatan SPK ──────────────────────────
-    # Struktur: 9 kolom logical, 8 sel fisik (tc[1] gridSpan=2)
+    # Daftar kegiatan datar (No berurutan), 8 sel fisik (tc[1] gridSpan=2):
     # tc[0]=No | tc[1]=Uraian(span2) | tc[2]=JangkaWaktu | tc[3]=Volume
     # tc[4]=Satuan | tc[5]=Harga/Sat | tc[6]=Honor | tc[7]=Akun
+    from docx.text.paragraph import Paragraph as _DP
     tbl = doc.tables[-1]
     kegiatan_list = kontrak['kegiatan_list']
+    rows = list(tbl.rows)
 
-    baris_total_tr    = tbl.rows[-1]._tr
-    baris_template_tr = copy.deepcopy(tbl.rows[3]._tr)
+    # Temukan baris template (placeholder kegiatan) & baris total berdasarkan isi
+    template_idx = next((i for i, r in enumerate(rows)
+                         if '<<Nama Kegiatan 1>>' in ' '.join(c.text for c in r.cells)), 3)
+    total_idx = next((i for i, r in enumerate(rows)
+                      if '<<Total Honor>>' in ' '.join(c.text for c in r.cells)), len(rows) - 1)
 
-    # Hapus baris data lama (index 3 s/d sebelum total)
-    for row in list(tbl.rows)[3:-1]:
-        tbl._tbl.remove(row._tr)
+    baris_template_tr = copy.deepcopy(rows[template_idx]._tr)
+    baris_total_tr    = rows[total_idx]._tr
 
-    from collections import defaultdict
-    kegiatan_per_fungsi = defaultdict(list)
-    for k in kegiatan_list:
-        kegiatan_per_fungsi[k.get('fungsi', '')].append(k)
+    # Hapus semua baris contoh dari template_idx s/d sebelum baris total
+    for r in rows[template_idx:total_idx]:
+        tbl._tbl.remove(r._tr)
 
-    no_global = 0
-    ref_tr    = baris_total_tr
-
-    for fungsi, keg_list in kegiatan_per_fungsi.items():
-        # ── Baris header fungsi ──
-        header_tr = copy.deepcopy(baris_template_tr)
-        tbl._tbl.insert(list(tbl._tbl).index(ref_tr), header_tr)
-
-        # Cari baris yang baru dimasukkan
-        for ri, row in enumerate(tbl.rows):
-            if row._tr is header_tr:
-                baris_h = tbl.rows[ri]
+    # Sisipkan satu baris per kegiatan, sebelum baris total
+    for idx, keg in enumerate(kegiatan_list, 1):
+        new_tr = copy.deepcopy(baris_template_tr)
+        tgl_str = f"{fmt_date_normal(keg['tgl_mulai'])} s.d {fmt_date_normal(keg['tgl_selesai'])}"
+        vm = {
+            '<<Nama Kegiatan 1>>':         keg['nama_kegiatan'],
+            '<<Tgl Mulai Kegiatan 1>> s.d <<Tgl Selesai Kegiatan 1>>': tgl_str,
+            '<<Volume Kegiatan 1>>':       str(keg['volume']),
+            '<<Satuan Kegiatan 1>>':       keg['satuan'],
+            '<<Harga/Satuan Kegiatan 1>>': fmt_rp(keg['honor_satuan']),
+            '<<Honor Total Kegiatan 1>>':  fmt_rp(keg['honor_total']),
+            '<<Mata Akun Kegiatan 1>>':    keg['mata_akun'],
+        }
+        tcs = new_tr.findall(qn('w:tc'))
+        # Sel No (tc[0]) → nomor urut
+        for w_p in tcs[0].findall('.//' + qn('w:p')):
+            p_obj = _DP(w_p, None)
+            full = ''.join(r.text for r in p_obj.runs)
+            if full.strip() and p_obj.runs:
+                p_obj.runs[0].text = str(idx)
+                for r in p_obj.runs[1:]:
+                    r.text = ''
                 break
-
-        tcs_h = get_tcs(baris_h)
-        # Buat var_map khusus header fungsi
-        for i_h, tc_h in enumerate(tcs_h):
-            warnai_tc(tc_h, 'BDD7EE')
-            # Tentukan teks per posisi sel fisik
-            if i_h == 1:
-                val_header = f'Fungsi: {fungsi}'
-            else:
-                val_header = ''
-            # Buat var_map yang mengganti SEMUA placeholder dengan nilai ini
-            vm_h = {}
-            for w_p in tc_h.findall('.//' + qn('w:p')):
-                from docx.text.paragraph import Paragraph as DP
-                p_obj = DP(w_p, None)
-                teks_p = ''.join(r.text for r in p_obj.runs)
-                if teks_p.strip():
-                    vm_h[teks_p.strip()] = val_header
-            ganti_tc(tc_h, vm_h)
-
-        # ── Baris data kegiatan ──
-        for keg in keg_list:
-            no_global += 1
-            new_tr = copy.deepcopy(baris_template_tr)
-            tbl._tbl.insert(list(tbl._tbl).index(ref_tr), new_tr)
-
-            for ri, row in enumerate(tbl.rows):
-                if row._tr is new_tr:
-                    baris_baru = tbl.rows[ri]
-                    break
-
-            tcs = get_tcs(baris_baru)
-            tgl_str = f"{fmt_date_normal(keg['tgl_mulai'])} s.d {fmt_date_normal(keg['tgl_selesai'])}"
-
-            # Buat var_map yang memetakan placeholder lama → nilai baru
-            # Ini bekerja karena ganti_paragraf menggabungkan multi-run sebelum replace
-            vm = {
-                '<<Nama Kegiatan 1>>':      keg['nama_kegiatan'],
-                '<<Tgl Mulai Kegiatan 1>> s.d <<Tgl Selesai Kegiatan 1>>': tgl_str,
-                '<<Volume Kegiatan 1>>':    str(keg['volume']),
-                '<<Satuan Kegiatan 1>>':    keg['satuan'],
-                '<<Harga/Satuan Kegiatan 1>>': fmt_rp(keg['honor_satuan']),
-                '<<Honor Total Kegiatan 1>>':  fmt_rp(keg['honor_total']),
-                '<<Mata Akun Kegiatan 1>>': keg['mata_akun'],
-                # Nomor baris
-                '1': str(no_global),
-            }
-            for tc in tcs:
-                ganti_tc(tc, vm)
+        # Sel lainnya → ganti placeholder kegiatan
+        for tc in tcs[1:]:
+            ganti_tc(tc, vm)
+        baris_total_tr.addprevious(new_tr)
 
     # ── Update baris total ──
     vm_total = {
         '<<Total Honor Terbliang>>': f"Terbilang: {terbilang_rupiah(kontrak['total_honor'])}",
         '<<Total Honor Terbilang>>': f"Terbilang: {terbilang_rupiah(kontrak['total_honor'])}",
         '<<Total Honor>>':           f"Rp. {fmt_rp(kontrak['total_honor'])}",
-        'Terbilang: <<Total Honor Terbl': f"Terbilang: {terbilang_rupiah(kontrak['total_honor'])}",
     }
-    tcs_total = get_tcs(tbl.rows[-1])
-    for tc in tcs_total:
+    for tc in baris_total_tr.findall(qn('w:tc')):
         ganti_tc(tc, vm_total)
 
     buf = io.BytesIO()

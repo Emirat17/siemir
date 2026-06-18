@@ -1041,6 +1041,7 @@ def generate_spk(id):
         'petugas_jabatan': kontrak.petugas.jabatan or 'Mitra',
         'petugas_alamat':  kontrak.petugas.alamat or '-',
         'total_honor':     float(kontrak.total_honor),
+        'total_ganti_rugi': float(kontrak.total_ganti_rugi or 0),
         'kegiatan_list': [{
             'nama_kegiatan': k.nama_kegiatan,
             'tgl_mulai':     k.tgl_mulai,
