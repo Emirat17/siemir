@@ -30,7 +30,13 @@
         </button>
         <a href="{{ url_for('main.daftar_kontrak') }}" class="btn btn-link btn-sm text-muted">Reset</a>
       </div>
-      <div class="col-auto ms-auto">
+      <div class="col-auto ms-auto d-flex gap-2">
+        {% if session.get('user_role') == 'admin_kabupaten' %}
+        <button type="submit" form="formRenomorPeriode" class="btn btn-outline-primary btn-sm"
+                onclick="return confirm('Urutkan ulang SEMUA nomor SPK mengikuti periode (tahun, bulan)?\nNomor SPK yang sudah ada bisa berubah.')">
+          <i class="bi bi-sort-numeric-down me-1"></i>Urutkan Nomor per Periode
+        </button>
+        {% endif %}
         <a href="{{ url_for('main.entri_kontrak') }}" class="btn btn-bps btn-sm">
           <i class="bi bi-plus-lg me-1"></i>Input Kegiatan
         </a>
@@ -38,6 +44,11 @@
     </form>
   </div>
 </div>
+
+{% if session.get('user_role') == 'admin_kabupaten' %}
+<form id="formRenomorPeriode" method="POST"
+      action="{{ url_for('main.renomor_periode_kontrak') }}" class="d-none"></form>
+{% endif %}
 
 <!-- Tabel -->
 <div class="card">

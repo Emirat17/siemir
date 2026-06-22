@@ -158,10 +158,15 @@ def next_nomor_global():
 
 def renomor_semua(mulai_dari=1):
     """
-    Renomor ulang kontrak sequential (tanpa sufiks) berdasarkan urutan id.
-    SPK bersufiks huruf (mis. PK-107A) dilewati dan nomornya dipertahankan.
+    Renomor ulang kontrak sequential (tanpa sufiks) berdasarkan PERIODE
+    (tahun, lalu bulan), dengan id sebagai pemecah seri dalam periode yang sama.
+    Sehingga urutan nomor SPK sejalan dengan periode: SPK periode lebih awal
+    selalu mendapat nomor lebih kecil. SPK bersufiks huruf (mis. PK-107A)
+    dilewati dan nomornya dipertahankan.
     """
-    semua = Kontrak.query.order_by(Kontrak.id.asc()).all()
+    semua = Kontrak.query.order_by(
+        Kontrak.tahun.asc(), Kontrak.bulan.asc(), Kontrak.id.asc()
+    ).all()
     sequential = [k for k in semua if ambil_nomor_urut(k) is not None]
     for i, k in enumerate(sequential, 1):
         k.nomor_spk = buat_nomor_spk(i, k.kode_fungsi or '14.101', k.tahun)
@@ -541,6 +546,8 @@ def upload_kontrak():
                 error_list.append(f'Baris {ri}: {str(e)}')
                 lewati += 1
 
+        # Renomor ulang agar urutan nomor SPK mengikuti periode
+        renomor_semua()
         db.session.commit()
 
         msg = f'{berhasil} baris kegiatan kontrak berhasil diimport.'
@@ -853,6 +860,9 @@ def entri_kontrak():
         # Auto-generate BAST berdasarkan bulan_pencairan dari DaftarKegiatan
         db.session.flush()
         auto_generate_bast(kontrak)
+        # Renomor ulang agar urutan nomor SPK mengikuti periode
+        if is_baru:
+            renomor_semua()
         db.session.commit()
         petugas = Petugas.query.get(petugas_id)
         msg = (f'Kontrak baru dibuat untuk {petugas.nama} — {NAMA_BULAN[bulan]} {tahun}. SPK: {kontrak.nomor_spk}' if is_baru
@@ -1021,6 +1031,16 @@ def hapus_kontrak(id):
         renomor_semua(nomor_dihapus)
     db.session.commit()
     flash('Kontrak berhasil dihapus dan nomor diperbarui.', 'warning')
+    return redirect(url_for('main.daftar_kontrak'))
+
+@main.route('/kontrak/renomor-periode', methods=['POST'])
+@login_required
+@role_required('admin_kabupaten')
+def renomor_periode_kontrak():
+    """Urutkan ulang nomor SPK seluruh kontrak mengikuti periode (tahun, bulan)."""
+    renomor_semua()
+    db.session.commit()
+    flash('Nomor SPK berhasil diurutkan ulang mengikuti periode.', 'success')
     return redirect(url_for('main.daftar_kontrak'))
 
 @main.route('/kontrak/<int:id>/spk.docx')
