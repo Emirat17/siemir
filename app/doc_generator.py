@@ -4,6 +4,7 @@ Versi 3 — gunakan ganti_paragraf untuk semua sel, termasuk tabel lampiran.
 """
 import copy
 import io
+import math
 from datetime import date, timedelta
 from docx import Document
 from docx.oxml.ns import qn
@@ -403,7 +404,9 @@ def generate_spk_se2026(data, template_path):
         '<<Total Ganti Rugi>>':          fmt_rp(tgr),
         '<<Total Ganti Rugi Terbilang>>':terbilang_rupiah(tgr),
         '<<Jumlah SLS>>':                str(jml_sls),
-        '<<40% dari Jumlah SLS>>':       str(round(jml_sls * 0.4)),
+        # 40% dari SLS dibulatkan KE ATAS (mis. 3 SLS → 1,2 → 2). Pakai math
+        # integer (×2÷5) untuk menghindari galat float pada 0.4 (mis. 25×0.4).
+        '<<40% dari Jumlah SLS>>':       str(math.ceil(jml_sls * 2 / 5)),
         '<<100% dari Jumlah SLS>>':      str(jml_sls),
         # Placeholder lama (60%/usaha/keluarga) dipertahankan untuk kompatibilitas
         # template versi sebelumnya; no-op jika placeholder tidak ada di template.
