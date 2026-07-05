@@ -74,60 +74,65 @@ def fmt_rp(n):
     return f"{int(n):,}".replace(',', '.')
 
 # ── GANTI TEKS ──────────────────────────────────────────────────
+def _ganti_lintas_run(runs, var, val):
+    """
+    Ganti SEMUA kemunculan 'var' di daftar runs, meski placeholder terpecah
+    antar beberapa run. Nilai ditempatkan pada run tempat placeholder DIMULAI,
+    sehingga format (bold/italic) run lain di paragraf tetap terjaga.
+    """
+    sval = str(val) if val is not None else ''
+    guard = 0
+    while guard < 1000:
+        guard += 1
+        texts = [r.text for r in runs]
+        full = ''.join(texts)
+        pos = full.find(var)
+        if pos == -1:
+            return
+        end = pos + len(var)
+        # Petakan posisi awal & akhir ke (run_idx, offset)
+        cum = 0
+        start_run = start_off = end_run = end_off = None
+        for ri, t in enumerate(texts):
+            nxt = cum + len(t)
+            if start_run is None and pos < nxt:
+                start_run, start_off = ri, pos - cum
+            if start_run is not None and end <= nxt:
+                end_run, end_off = ri, end - cum
+                break
+            cum = nxt
+        if start_run is None or end_run is None:
+            return
+        if start_run == end_run:
+            t = runs[start_run].text
+            runs[start_run].text = t[:start_off] + sval + t[end_off:]
+        else:
+            runs[start_run].text = runs[start_run].text[:start_off] + sval
+            for ri in range(start_run + 1, end_run):
+                runs[ri].text = ''
+            runs[end_run].text = runs[end_run].text[end_off:]
+
+
 def ganti_paragraf(p, var_map):
     """
-    Ganti placeholder <<...>> di paragraf sambil mempertahankan format per-run.
-
-    Urutan:
-    1. Pola gabungan (multi-<<>>, mis. <<a>>-<<b>>-<<c>>) diganti dulu di full-text
-       agar pola seperti (02-06-2026) terbentuk sebelum placeholder tunggal diganti.
-    2. Placeholder tunggal diganti per-run agar format bold/italic terjaga.
-    3. Fallback merge ke run[0] jika placeholder tunggal terpecah antar run.
+    Ganti placeholder <<...>> di paragraf dengan mempertahankan format tiap run.
+    Pola gabungan (multi-<<>>, mis. <<a>>-<<b>>-2026) diproses lebih dulu agar
+    terbentuk sebelum placeholder tunggal. Semua penggantian dilakukan lintas-run
+    sehingga placeholder yang terpecah tetap tergantikan tanpa merusak bold/italic
+    teks lain di paragraf yang sama.
     """
-    full = ''.join(r.text for r in p.runs)
+    runs = p.runs
+    if not runs:
+        return
+    full = ''.join(r.text for r in runs)
     if not any(var in full for var in var_map):
         return
 
-    # --- Tahap 1: pola gabungan (mengandung lebih dari satu <<>>) ---
-    combined_vars = {k: v for k, v in var_map.items() if k.count('<<') > 1}
-    single_vars   = {k: v for k, v in var_map.items() if k.count('<<') <= 1}
-
-    if combined_vars:
-        baru_combined = full
-        changed = False
-        for var, val in combined_vars.items():
-            if var in baru_combined:
-                baru_combined = baru_combined.replace(var, str(val) if val is not None else '')
-                changed = True
-        if changed and p.runs:
-            p.runs[0].text = baru_combined
-            for r in p.runs[1:]:
-                r.text = ''
-
-    # --- Tahap 2: placeholder tunggal, per-run (preserves bold/italic) ---
-    for r in p.runs:
-        old = r.text
-        new = old
-        for var, val in single_vars.items():
-            if var in new:
-                new = new.replace(var, str(val) if val is not None else '')
-        if new != old:
-            r.text = new
-
-    # --- Tahap 3: jika MASIH ada placeholder tersisa (terpecah antar run),
-    # gabung teks & ganti sisanya ke run pertama. Selalu dijalankan agar
-    # placeholder yang terpecah tetap tergantikan meski placeholder lain di
-    # paragraf yang sama sudah diganti per-run.
-    full2 = ''.join(r.text for r in p.runs)
-    if any(var in full2 for var in var_map):
-        baru2 = full2
-        for var, val in var_map.items():
-            if var in baru2:
-                baru2 = baru2.replace(var, str(val) if val is not None else '')
-        if baru2 != full2 and p.runs:
-            p.runs[0].text = baru2
-            for r in p.runs[1:]:
-                r.text = ''
+    combined = [(k, v) for k, v in var_map.items() if k.count('<<') > 1]
+    single   = [(k, v) for k, v in var_map.items() if k.count('<<') <= 1]
+    for var, val in combined + single:
+        if var in ''.join(r.text for r in runs):
+            _ganti_lintas_run(runs, var, val)
 
 def ganti_doc(doc, var_map):
     """Ganti variabel di seluruh paragraf dan tabel dokumen."""
