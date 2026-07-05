@@ -5,6 +5,7 @@ Versi 3 — gunakan ganti_paragraf untuk semua sel, termasuk tabel lampiran.
 import copy
 import io
 import math
+import re
 from datetime import date, timedelta
 from docx import Document
 from docx.oxml.ns import qn
@@ -104,22 +105,25 @@ def ganti_paragraf(p, var_map):
                 r.text = ''
 
     # --- Tahap 2: placeholder tunggal, per-run (preserves bold/italic) ---
-    diganti = False
     for r in p.runs:
         old = r.text
         new = old
         for var, val in single_vars.items():
-            new = new.replace(var, str(val) if val is not None else '')
+            if var in new:
+                new = new.replace(var, str(val) if val is not None else '')
         if new != old:
             r.text = new
-            diganti = True
 
-    if not diganti:
-        # Placeholder tunggal terpecah antar run — fallback: merge ke run pertama
-        full2 = ''.join(r.text for r in p.runs)
+    # --- Tahap 3: jika MASIH ada placeholder tersisa (terpecah antar run),
+    # gabung teks & ganti sisanya ke run pertama. Selalu dijalankan agar
+    # placeholder yang terpecah tetap tergantikan meski placeholder lain di
+    # paragraf yang sama sudah diganti per-run.
+    full2 = ''.join(r.text for r in p.runs)
+    if any(var in full2 for var in var_map):
         baru2 = full2
-        for var, val in single_vars.items():
-            baru2 = baru2.replace(var, str(val) if val is not None else '')
+        for var, val in var_map.items():
+            if var in baru2:
+                baru2 = baru2.replace(var, str(val) if val is not None else '')
         if baru2 != full2 and p.runs:
             p.runs[0].text = baru2
             for r in p.runs[1:]:
@@ -441,6 +445,144 @@ def generate_spk_se2026(data, template_path):
     doc.save(buf)
     buf.seek(0)
     return buf.read()
+
+
+# ── GENERATOR BAPP & BAST SE2026 ─────────────────────────────────
+def _parse_kode_wilayah(teks):
+    """'[020] TEBING TINGGI' → ('020', 'TEBING TINGGI'). Tanpa kurung → ('', teks)."""
+    if not teks:
+        return '', ''
+    m = re.match(r'\s*\[([^\]]*)\]\s*(.*)', str(teks))
+    if m:
+        return m.group(1).strip(), m.group(2).strip()
+    return '', str(teks).strip()
+
+
+def _var_map_umum_se2026(data, tanggal):
+    """Placeholder identitas & tanggal yang dipakai bersama BAPP/BAST."""
+    return {
+        # Pola gabungan didahulukan: (<<tanggal>>-<<bulan>>-YYYY) → DD-MM-YYYY
+        f'<<tanggal>>-<<bulan>>-{tanggal.year}': tanggal.strftime('%d-%m-%Y'),
+        '<<hari>>':                fmt_hari(tanggal),
+        '<<tanggal>>':             fmt_tgl_terbilang(tanggal),
+        '<<bulan>>':               fmt_bulan_nama(tanggal),
+        '<<nama>>':                data.get('nama', ''),
+        '<<Nama>>':                data.get('nama', ''),
+        '<<NIK>>':                 data.get('nik', '') or '',
+        '<<Nomor SPK Petugas Lapangan SE2026>>':   data.get('nomor_spk', ''),
+        '<<Nomor SPK Pemeriksa Lapangan SE2026>>': data.get('nomor_spk', ''),
+    }
+
+
+def generate_bapp_se2026(data, template_path):
+    """
+    Generate BAPP Termin I / II untuk PPL / PML.
+    Satu var_map mencakup semua placeholder ke-4 varian; placeholder yang
+    tidak ada di template menjadi no-op. Volume mengikuti nama placeholder:
+    'keatas' → ceil, 'kebawah' → floor.
+    """
+    doc = Document(template_path)
+    tanggal = data['tanggal']
+    sls = int(data.get('jumlah_sls', 0) or 0)
+    h1  = data.get('honor_1_ob',   0) or 0
+    h15 = data.get('honor_1_5_ob', 0) or 0
+
+    var_map = _var_map_umum_se2026(data, tanggal)
+    var_map.update({
+        '<<Nomor BAPP>>':                  data.get('nomor', ''),
+        # Honor (template sudah ada "Rp " dan ", 00" → angka saja)
+        '<<Honor 1 OB>>':                  fmt_rp(h1),
+        '<<Total Honor 1 OB Terbilang>>':  terbilang_rupiah(h1),
+        '<<Total Honor 1,5 OB>>':          fmt_rp(h15),
+        '<<Total Honor 1,5 OB Terbilang>>':terbilang_rupiah(h15),
+        # Volume target (40% = 2/5, 60% = 3/5) — integer math hindari galat float
+        '<<Pembulatan keatas 40% dari Total SLS>>':  str(math.ceil(sls * 2 / 5)),
+        '<<Pembulatan keatas 60% dari Total SLS>>':  str(math.ceil(sls * 3 / 5)),
+        '<<Pembulatan kebawah 60% dari Total SLS>>': str(math.floor(sls * 3 / 5)),
+    })
+    for i in range(1, 6):
+        var_map[f'<<Screenshoot Aplikasi Fasih {i}>>'] = ''
+    ganti_doc(doc, var_map)
+
+    buf = io.BytesIO(); doc.save(buf); buf.seek(0)
+    return buf.read()
+
+
+def generate_bast_se2026(data, template_path, jenis):
+    """
+    Generate BAST untuk PPL / PML. Tanggal biasanya 1 September 2026.
+    Tabel wilayah/daftar petugas diisi dinamis: PPL dari wilayah, PML dari ppl_list.
+    """
+    doc = Document(template_path)
+    tanggal = data['tanggal']
+    sls = int(data.get('jumlah_sls', 0) or 0)
+    th  = data.get('total_honor', 0) or 0
+
+    var_map = _var_map_umum_se2026(data, tanggal)
+    var_map.update({
+        '<<Nomor BAST>>':          data.get('nomor', ''),
+        '<<Total SLS>>':           str(sls),
+        '<< Total SLS>>':          str(sls),
+        '<<Total Honor>>':         fmt_rp(th),
+        '<<Total Honor Terbilang>>':terbilang_rupiah(th),
+    })
+    for i in range(1, 6):
+        var_map[f'<<Screenshoot Aplikasi Fasih {i}>>'] = ''
+    ganti_doc(doc, var_map)
+
+    items = data.get('wilayah', []) if jenis == 'PPL' else data.get('ppl_list', [])
+    _isi_tabel_wilayah_bast(doc, items)
+
+    buf = io.BytesIO(); doc.save(buf); buf.seek(0)
+    return buf.read()
+
+
+def _isi_tabel_wilayah_bast(doc, items):
+    """Isi tabel wilayah kerja BAST secara dinamis (satu baris per item).
+    Baris 'No' memakai auto-numbering Word, jadi tidak disentuh."""
+    target = None
+    for tbl in doc.tables:
+        alltext = ' '.join(c.text for r in tbl.rows for c in r.cells)
+        if '<<KODE KECAMATAN 1>>' in alltext:
+            target = tbl
+            break
+    if target is None:
+        return
+
+    rows = list(target.rows)
+    tpl_idx = next(i for i, r in enumerate(rows)
+                   if '<<KODE KECAMATAN 1>>' in ' '.join(c.text for c in r.cells))
+    # Kumpulkan baris contoh berturut (punya <<KODE KECAMATAN N>>)
+    data_idxs = []
+    for i in range(tpl_idx, len(rows)):
+        if re.search(r'<<KODE KECAMATAN \d+>>', ' '.join(c.text for c in rows[i].cells)):
+            data_idxs.append(i)
+        else:
+            break
+    # Baris anchor (biasanya 'Dst.') tepat setelah baris contoh terakhir
+    after = data_idxs[-1] + 1
+    anchor_tr = rows[after]._tr if after < len(rows) else None
+    tpl_tr = copy.deepcopy(rows[tpl_idx]._tr)
+
+    for i in data_idxs:
+        target._tbl.remove(rows[i]._tr)
+
+    for it in items:
+        new_tr = copy.deepcopy(tpl_tr)
+        kk, nk = _parse_kode_wilayah(it.get('kode_kecamatan', ''))
+        kd, nd = _parse_kode_wilayah(it.get('kode_desa', ''))
+        vm = {
+            '<<KODE KECAMATAN 1>>': kk, '<<KECAMATAN 1>>': nk,
+            '<<KODE DESA 1>>':      kd, '<<DESA 1>>':      nd,
+            '<<Jumlah SLS 1>>':     str(it.get('jumlah_sls', '') or ''),
+            '<<Nama Petugas Lapangan 1>>': it.get('nama_ppl', '') or '',
+        }
+        for tc in new_tr.findall(qn('w:tc')):
+            ganti_tc(tc, vm)
+        if anchor_tr is not None:
+            anchor_tr.addprevious(new_tr)
+        else:
+            target._tbl.append(new_tr)
 
 
 # ── MERGE DOKUMEN ────────────────────────────────────────────────

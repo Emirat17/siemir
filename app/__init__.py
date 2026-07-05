@@ -42,6 +42,7 @@ def _migrasi_kolom_baru():
     tambah = [
         ('kontrak_se2026', 'gelombang', 'INTEGER'),
         ('kontrak_se2026', 'kelas',     'VARCHAR(20)'),
+        ('kontrak_se2026', 'nik',       'VARCHAR(30)'),
     ]
 
     # Kolom yang sudah ada tapi perlu diperlebar tipenya

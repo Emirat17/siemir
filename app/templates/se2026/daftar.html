@@ -61,54 +61,29 @@
     <i class="bi bi-download me-1"></i>Template Excel
   </a>
 
-  <!-- Merge buttons -->
-  {% if gel_f or kelas_f %}
-  <a href="{{ url_for('se2026.merge', jenis=jenis.lower(), gelombang=gel_f, kelas=kelas_f) }}"
-     class="btn btn-warning btn-sm ms-auto">
-    <i class="bi bi-file-earmark-zip me-1"></i>
-    Merge SPK
-    {% if gel_f %}Gel {{ gel_f }}{% endif %}
-    {% if kelas_f %}Kelas {{ kelas_f }}{% endif %}
-    ({{ kontrak_list|length }} dok)
-  </a>
-  {% else %}
+  <!-- Merge dokumen (mengikuti filter aktif) -->
+  {% set fq = {'gelombang': gel_f or '', 'kelas': kelas_f or ''} %}
+  {% set flabel = ('Gel ' ~ gel_f) if gel_f else (('Kelas ' ~ kelas_f) if kelas_f else 'Semua') %}
   <div class="dropdown ms-auto">
     <button class="btn btn-warning btn-sm dropdown-toggle" data-bs-toggle="dropdown">
-      <i class="bi bi-file-earmark-zip me-1"></i>Merge Dokumen
+      <i class="bi bi-file-earmark-zip me-1"></i>Merge Dokumen — {{ flabel }} ({{ kontrak_list|length }})
     </button>
     <ul class="dropdown-menu dropdown-menu-end" style="font-size:13px;">
-      {% if gelombang_opts %}
-      <li><h6 class="dropdown-header">Per Gelombang</h6></li>
-      {% for g in gelombang_opts %}
-      <li>
-        <a class="dropdown-item" href="{{ url_for('se2026.merge', jenis=jenis.lower(), gelombang=g) }}">
-          <i class="bi bi-layers me-1"></i>Gelombang {{ g }}
-        </a>
-      </li>
-      {% endfor %}
-      {% endif %}
-      {% if kelas_opts %}
-      <li><hr class="dropdown-divider"></li>
-      <li><h6 class="dropdown-header">Per Kelas</h6></li>
-      {% for kl in kelas_opts %}
-      <li>
-        <a class="dropdown-item" href="{{ url_for('se2026.merge', jenis=jenis.lower(), kelas=kl) }}">
-          <i class="bi bi-collection me-1"></i>Kelas {{ kl }}
-        </a>
-      </li>
-      {% endfor %}
-      {% endif %}
-      <li><hr class="dropdown-divider"></li>
-      <li>
-        <a class="dropdown-item" href="{{ url_for('se2026.merge', jenis=jenis.lower()) }}">
-          <i class="bi bi-files me-1"></i>Semua ({{ kontrak_list|length }} dok)
-        </a>
-      </li>
+      <li><h6 class="dropdown-header">Gabung {{ kontrak_list|length }} dokumen ({{ flabel }})</h6></li>
+      <li><a class="dropdown-item" href="{{ url_for('se2026.merge', jenis=jenis.lower(), **fq) }}">
+        <i class="bi bi-file-earmark-text me-1"></i>Merge SPK</a></li>
+      <li><a class="dropdown-item" href="#"
+             onclick="bukaTanggal('{{ url_for('se2026.merge_bapp', jenis=jenis.lower(), termin=1, **fq) }}','2026-07-15','Merge BAPP Termin I');return false;">
+        <i class="bi bi-file-earmark-ruled me-1"></i>Merge BAPP Termin I</a></li>
+      <li><a class="dropdown-item" href="#"
+             onclick="bukaTanggal('{{ url_for('se2026.merge_bapp', jenis=jenis.lower(), termin=2, **fq) }}','2026-09-01','Merge BAPP Termin II');return false;">
+        <i class="bi bi-file-earmark-ruled me-1"></i>Merge BAPP Termin II</a></li>
+      <li><a class="dropdown-item" href="{{ url_for('se2026.merge_bast', jenis=jenis.lower(), **fq) }}">
+        <i class="bi bi-file-earmark-check me-1"></i>Merge BAST</a></li>
     </ul>
   </div>
-  {% endif %}
 
-  <span class="{{ '' if gel_f or kelas_f else 'ms-auto' }} text-muted" style="font-size:13px;">
+  <span class="text-muted" style="font-size:13px;">
     Tampil: <strong>{{ kontrak_list|length }}</strong> petugas {{ jenis }}
   </span>
 </div>
@@ -206,12 +181,27 @@
             </td>
             {% endif %}
             <td>
-              <a href="{{ url_for('se2026.generate', id=k.id) }}"
-                 class="btn btn-outline-{{ warna }} btn-sm me-1" title="Download SPK">
-                <i class="bi bi-file-earmark-word"></i>
-              </a>
+              <div class="dropdown d-inline">
+                <button class="btn btn-outline-{{ warna }} btn-sm dropdown-toggle"
+                        data-bs-toggle="dropdown" title="Download Dokumen">
+                  <i class="bi bi-file-earmark-word"></i>
+                </button>
+                <ul class="dropdown-menu" style="font-size:13px;">
+                  <li><a class="dropdown-item" href="{{ url_for('se2026.generate', id=k.id) }}">
+                    <i class="bi bi-file-earmark-text me-1"></i>SPK</a></li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li><a class="dropdown-item" href="#"
+                         onclick="bukaTanggal('{{ url_for('se2026.generate_bapp', id=k.id, termin=1) }}','2026-07-15','BAPP Termin I — {{ k.nama }}');return false;">
+                    <i class="bi bi-file-earmark-ruled me-1"></i>BAPP Termin I</a></li>
+                  <li><a class="dropdown-item" href="#"
+                         onclick="bukaTanggal('{{ url_for('se2026.generate_bapp', id=k.id, termin=2) }}','2026-09-01','BAPP Termin II — {{ k.nama }}');return false;">
+                    <i class="bi bi-file-earmark-ruled me-1"></i>BAPP Termin II</a></li>
+                  <li><a class="dropdown-item" href="{{ url_for('se2026.generate_bast', id=k.id) }}">
+                    <i class="bi bi-file-earmark-check me-1"></i>BAST</a></li>
+                </ul>
+              </div>
               <a href="{{ url_for('se2026.edit', id=k.id) }}"
-                 class="btn btn-outline-secondary btn-sm me-1" title="Edit">
+                 class="btn btn-outline-secondary btn-sm" title="Edit">
                 <i class="bi bi-pencil"></i>
               </a>
               <form action="{{ url_for('se2026.hapus', id=k.id) }}" method="POST"
@@ -310,6 +300,31 @@
     </div>
   </div>
 </div>
+
+<!-- Modal Tanggal BAPP -->
+<div class="modal fade" id="modalTanggal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title fw-semibold" id="modalTanggalJudul">Pilih Tanggal Dokumen</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label fw-medium" style="font-size:13px;">Tanggal Dokumen</label>
+        <input type="date" id="modalTanggalInput" class="form-control">
+        <div class="form-text" style="font-size:11px;">
+          Sesuaikan dengan tanggal petugas menyelesaikan target termin.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+        <button type="button" class="btn btn-warning btn-sm" id="modalTanggalOk">
+          <i class="bi bi-download me-1"></i>Download
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -317,6 +332,22 @@
   document.addEventListener('DOMContentLoaded', () => {
     const inp = document.querySelector('#modalImport input[name="tanggal_spk"]');
     if (inp && !inp.value) inp.value = '{{ today }}';
+  });
+
+  let _tglUrl = '';
+  const _modalTanggal = () => new bootstrap.Modal(document.getElementById('modalTanggal'));
+  function bukaTanggal(url, defaultDate, judul) {
+    _tglUrl = url;
+    document.getElementById('modalTanggalJudul').textContent = judul || 'Pilih Tanggal Dokumen';
+    document.getElementById('modalTanggalInput').value = defaultDate || '';
+    _modalTanggal().show();
+  }
+  document.getElementById('modalTanggalOk').addEventListener('click', () => {
+    const tgl = document.getElementById('modalTanggalInput').value;
+    if (!tgl) return;
+    const sep = _tglUrl.includes('?') ? '&' : '?';
+    window.location.href = _tglUrl + sep + 'tanggal=' + tgl;
+    bootstrap.Modal.getInstance(document.getElementById('modalTanggal')).hide();
   });
 
   function updateBar() {

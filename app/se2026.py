@@ -12,13 +12,25 @@ from app.models import KontrakSE2026, WilayahSE2026, PPLDiwasiSE2026, NomorUrut
 
 se2026 = Blueprint('se2026', __name__, url_prefix='/se2026')
 
-TEMPLATE_PPL = os.path.join(os.path.dirname(__file__), 'templates',
-                             '[1] Template_SPK Petugas Lapangan SE2026 final.docx')
-TEMPLATE_PML = os.path.join(os.path.dirname(__file__), 'templates',
-                             '[6] Template_SPK Pemeriksa Lapangan SE2026 final.docx')
+_TPL = lambda fn: os.path.join(os.path.dirname(__file__), 'templates', fn)
+TEMPLATE_PPL = _TPL('[1] Template_SPK Petugas Lapangan SE2026 final.docx')
+TEMPLATE_PML = _TPL('[6] Template_SPK Pemeriksa Lapangan SE2026 final.docx')
 
-# Kolom Excel: 9 kolom umum + 2 (Gelombang, Kelas) → wilayah/PPL mulai index 11
-WILAYAH_BASE = 11
+# Template BAPP (Termin I/II) & BAST
+TPL_BAPP = {
+    ('PPL', 1): _TPL('Template_BAPP termin I untuk Petugas Lapangan final.docx'),
+    ('PPL', 2): _TPL('Template_BAPP termin II untuk Petugas Lapangan final .docx'),
+    ('PML', 1): _TPL('Template_BAPP termin I untuk Pemeriksa Lapangan Final.docx'),
+    ('PML', 2): _TPL('Template_BAPP termin II untuk Pemeriksa Lapangan Final.docx'),
+}
+TPL_BAST = {
+    'PPL': _TPL('Template_BAST untuk Petugas Lapangan SE2026 final.docx'),
+    'PML': _TPL('Template_BAST untuk Pemeriksa Lapangan Final.docx'),
+}
+
+# Kolom Excel: 0=Nama, 1=NIK, 2=Alamat, 3..9=honor/volume, 10=Gelombang,
+# 11=Kelas → wilayah/PPL mulai index 12
+WILAYAH_BASE = 12
 
 
 # ── Helpers ──────────────────────────────────────────────────────
@@ -47,6 +59,46 @@ def renomor_se2026(jenis_upper, mulai_dari=1):
         rec.terakhir = akhir
     elif kontraks:
         db.session.add(NomorUrut(jenis=f'SE2026-{jenis_upper}', terakhir=akhir))
+
+
+def nomor_spk_lengkap(k):
+    """Format nomor SPK penuh untuk placeholder di BAPP/BAST."""
+    kode = 'SS.330' if k.jenis == 'PPL' else 'SS.340'
+    return f'B-{k.nomor_spk}/SPK-SE2026/1410/{kode}/2026'
+
+
+def nomor_dokumen(k):
+    """Nomor urut dokumen (independen) = posisi petugas di antara kontrak sejenis,
+    diurut menaik berdasarkan nomor SPK. Dikembalikan sebagai '049'."""
+    semua = KontrakSE2026.query.filter_by(jenis=k.jenis).all()
+    def key(x):
+        try: return int(''.join(ch for ch in (x.nomor_spk or '') if ch.isdigit()) or 0)
+        except ValueError: return 0
+    semua.sort(key=key)
+    for i, x in enumerate(semua, 1):
+        if x.id == k.id:
+            return f'{i:03d}'
+    return '001'
+
+
+def data_dokumen(k, tanggal):
+    """Data dict untuk generator BAPP/BAST dari satu kontrak SE2026."""
+    return {
+        'nama':        k.nama,
+        'nik':         k.nik or '',
+        'nomor':       nomor_dokumen(k),
+        'nomor_spk':   nomor_spk_lengkap(k),
+        'tanggal':     tanggal,
+        'honor_1_ob':  float(k.honor_1_ob or 0),
+        'honor_1_5_ob':float(k.honor_1_5_ob or 0),
+        'total_honor': float(k.total_honor or 0),
+        'jumlah_sls':  k.jumlah_sls or 0,
+        'wilayah': [{'kode_kecamatan': w.kode_kecamatan, 'kode_desa': w.kode_desa,
+                     'jumlah_sls': w.jumlah_sls} for w in k.wilayah_list],
+        'ppl_list': [{'nama_ppl': p.nama_ppl, 'kode_kecamatan': p.kode_kecamatan,
+                      'kode_desa': p.kode_desa, 'jumlah_sls': p.jumlah_sls}
+                     for p in k.ppl_list],
+    }
 
 
 def kontrak_ke_data(k):
@@ -103,6 +155,7 @@ def simpan_ppl_diawasi(kontrak_id, form):
 
 def isi_kontrak_dari_form(k, form):
     k.nama             = form.get('nama', '').strip()
+    k.nik              = form.get('nik', '').strip() or None
     k.alamat           = form.get('alamat', '').strip()
     k.tanggal_spk      = date.fromisoformat(form['tanggal_spk'])
     k.nomor_spk        = form.get('nomor_spk', k.nomor_spk or '').strip() or k.nomor_spk
@@ -342,6 +395,92 @@ def merge(jenis):
         headers={'Content-Disposition': f'attachment; filename="{nama_file}"'})
 
 
+# ── BAPP & BAST ──────────────────────────────────────────────────
+
+def _docx_response(docx_bytes, nama_file):
+    return Response(docx_bytes,
+        mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        headers={'Content-Disposition': f'attachment; filename="{nama_file}"'})
+
+
+def _tanggal_arg(default_iso):
+    raw = request.args.get('tanggal', '').strip()
+    try:
+        return date.fromisoformat(raw) if raw else date.fromisoformat(default_iso)
+    except ValueError:
+        return date.fromisoformat(default_iso)
+
+
+def _kontrak_terfilter(jenis_upper):
+    gel_f   = request.args.get('gelombang', type=int)
+    kelas_f = request.args.get('kelas', '').strip()
+    q = KontrakSE2026.query.filter_by(jenis=jenis_upper)
+    if gel_f:
+        q = q.filter_by(gelombang=gel_f)
+    if kelas_f:
+        q = q.filter_by(kelas=kelas_f)
+    label = f'Gel{gel_f}' if gel_f else f'Kelas{kelas_f}' if kelas_f else 'Semua'
+    return q.order_by(KontrakSE2026.id).all(), label
+
+
+@se2026.route('/<int:id>/bapp/<int:termin>.docx')
+@login_required
+def generate_bapp(id, termin):
+    from app.doc_generator import generate_bapp_se2026
+    if termin not in (1, 2):
+        return redirect(url_for('se2026.index'))
+    k = KontrakSE2026.query.get_or_404(id)
+    tanggal = _tanggal_arg('2026-07-15' if termin == 1 else '2026-09-01')
+    docx = generate_bapp_se2026(data_dokumen(k, tanggal), TPL_BAPP[(k.jenis, termin)])
+    nama = f"BAPP_Termin{termin}_{k.jenis}_{k.nama.replace(' ', '_')}.docx"
+    return _docx_response(docx, nama)
+
+
+@se2026.route('/<int:id>/bast.docx')
+@login_required
+def generate_bast(id):
+    from app.doc_generator import generate_bast_se2026
+    k = KontrakSE2026.query.get_or_404(id)
+    tanggal = _tanggal_arg('2026-09-01')
+    docx = generate_bast_se2026(data_dokumen(k, tanggal), TPL_BAST[k.jenis], k.jenis)
+    nama = f"BAST_{k.jenis}_{k.nama.replace(' ', '_')}.docx"
+    return _docx_response(docx, nama)
+
+
+@se2026.route('/<jenis>/merge-bapp/<int:termin>')
+@login_required
+def merge_bapp(jenis, termin):
+    from app.doc_generator import generate_bapp_se2026, merge_docx_list
+    jenis_upper = jenis.upper()
+    if termin not in (1, 2):
+        return redirect(url_for('se2026.daftar', jenis=jenis.lower()))
+    kontrak_list, label = _kontrak_terfilter(jenis_upper)
+    if not kontrak_list:
+        flash('Tidak ada kontrak sesuai filter untuk di-merge.', 'warning')
+        return redirect(url_for('se2026.daftar', jenis=jenis.lower()))
+    tanggal = _tanggal_arg('2026-07-15' if termin == 1 else '2026-09-01')
+    docs = [generate_bapp_se2026(data_dokumen(k, tanggal), TPL_BAPP[(jenis_upper, termin)])
+            for k in kontrak_list]
+    merged = merge_docx_list(docs)
+    return _docx_response(merged, f"Merge_BAPP_Termin{termin}_{jenis_upper}_{label}_SE2026.docx")
+
+
+@se2026.route('/<jenis>/merge-bast')
+@login_required
+def merge_bast(jenis):
+    from app.doc_generator import generate_bast_se2026, merge_docx_list
+    jenis_upper = jenis.upper()
+    kontrak_list, label = _kontrak_terfilter(jenis_upper)
+    if not kontrak_list:
+        flash('Tidak ada kontrak sesuai filter untuk di-merge.', 'warning')
+        return redirect(url_for('se2026.daftar', jenis=jenis.lower()))
+    tanggal = _tanggal_arg('2026-09-01')
+    docs = [generate_bast_se2026(data_dokumen(k, tanggal), TPL_BAST[jenis_upper], jenis_upper)
+            for k in kontrak_list]
+    merged = merge_docx_list(docs)
+    return _docx_response(merged, f"Merge_BAST_{jenis_upper}_{label}_SE2026.docx")
+
+
 @se2026.route('/<jenis>/import', methods=['POST'])
 @login_required
 @role_required('admin_kabupaten', 'admin_fungsi')
@@ -400,23 +539,26 @@ def import_excel(jenis):
         # Gunakan SAVEPOINT per baris — kegagalan 1 baris tidak menghapus baris lain
         sp = db.session.begin_nested()
         try:
-            gel_val = xval(row, 9, None)
+            # Kolom: 0=Nama 1=NIK 2=Alamat 3=Total Honor 4=Honor 1 OB
+            # 5=Honor 1,5 OB 6=Ganti Rugi 7=SLS 8=Usaha 9=Keluarga 10=Gel 11=Kelas
+            gel_val = xval(row, 10, None)
             gel     = int(float(gel_val)) if gel_val not in (None, '', 0) else None
-            kelas   = xstr(row, 10) or None
+            kelas   = xstr(row, 11) or None
 
             k = KontrakSE2026(
                 jenis=jenis_upper,
                 nama=nama,
+                nik=xstr(row, 1) or None,
                 nomor_spk='000',
-                alamat=xstr(row, 1),
+                alamat=xstr(row, 2),
                 tanggal_spk=tanggal_spk,
-                total_honor=xfloat(row, 2),
-                honor_1_ob=xfloat(row, 3),
-                honor_1_5_ob=xfloat(row, 4),
-                total_ganti_rugi=xfloat(row, 5),
-                jumlah_sls=xint(row, 6),
-                jumlah_usaha=xint(row, 7),
-                jumlah_keluarga=xint(row, 8),
+                total_honor=xfloat(row, 3),
+                honor_1_ob=xfloat(row, 4),
+                honor_1_5_ob=xfloat(row, 5),
+                total_ganti_rugi=xfloat(row, 6),
+                jumlah_sls=xint(row, 7),
+                jumlah_usaha=xint(row, 8),
+                jumlah_keluarga=xint(row, 9),
                 gelombang=gel,
                 kelas=kelas,
             )
@@ -498,17 +640,17 @@ def download_template(jenis):
         c.fill, c.font, c.alignment, c.border = fill, font, center, bdr
         ws.column_dimensions[u.get_column_letter(col)].width = 20
 
-    # 9 kolom umum
+    # 10 kolom umum (termasuk NIK)
     for i, h in enumerate([
-        'Nama Lengkap', 'Alamat', 'Total Honor (Rp)',
+        'Nama Lengkap', 'NIK', 'Alamat', 'Total Honor (Rp)',
         'Honor 1 OB (Rp)', 'Honor 1,5 OB (Rp)', 'Total Ganti Rugi (Rp)',
         'Jumlah SLS (Total)', 'Jumlah Usaha (Total)', 'Jumlah Keluarga (Total)',
     ], 1):
         hdr(i, h)
 
-    # Kolom 10-11: Gelombang & Kelas
-    hdr(10, 'Gelombang', fill=hijau, font=f_hij)
-    hdr(11, 'Kelas', fill=hijau, font=f_hij)
+    # Kolom 11-12: Gelombang & Kelas
+    hdr(11, 'Gelombang', fill=hijau, font=f_hij)
+    hdr(12, 'Kelas', fill=hijau, font=f_hij)
 
     # Kolom wilayah / PPL diawasi (mulai kolom 12 = index 11)
     if jenis_upper == 'PPL':
@@ -527,8 +669,8 @@ def download_template(jenis):
 
     ws.row_dimensions[1].height = 42
 
-    contoh = ['Nama Petugas Contoh', 'Jl. Contoh No. 1', 2500000, 1000000, 1500000,
-              2500000, 10, 15, 30, 1, 'A'] + contoh_extra
+    contoh = ['Nama Petugas Contoh', '1410010101990001', 'Jl. Contoh No. 1',
+              2500000, 1000000, 1500000, 2500000, 10, 15, 30, 1, 'A'] + contoh_extra
     for i, v in enumerate(contoh, 1):
         ws.cell(row=2, column=i, value=v).border = bdr
 

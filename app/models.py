@@ -218,6 +218,7 @@ class KontrakSE2026(db.Model):
     jenis            = db.Column(db.String(5),  nullable=False)   # 'PPL' or 'PML'
     nomor_spk        = db.Column(db.String(100))
     nama             = db.Column(db.String(200), nullable=False)
+    nik              = db.Column(db.String(30))
     alamat           = db.Column(db.Text)
     tanggal_spk      = db.Column(db.Date)
     total_honor      = db.Column(db.Numeric(15, 2), default=0)

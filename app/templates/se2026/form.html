@@ -23,7 +23,7 @@
       </div>
       <div class="card-body">
         <div class="row g-3">
-          <div class="col-md-8">
+          <div class="col-md-5">
             <label class="form-label fw-medium" style="font-size:13px;">
               Nama Lengkap <span class="text-danger">*</span>
             </label>
@@ -31,6 +31,14 @@
                    value="{{ k.nama if k else '' }}" required>
           </div>
           <div class="col-md-4">
+            <label class="form-label fw-medium" style="font-size:13px;">
+              NIK <span class="text-muted fw-normal">(untuk BAPP/BAST)</span>
+            </label>
+            <input type="text" name="nik" class="form-control"
+                   value="{{ k.nik if k and k.nik else '' }}" placeholder="16 digit NIK"
+                   maxlength="30">
+          </div>
+          <div class="col-md-3">
             <label class="form-label fw-medium" style="font-size:13px;">
               Tanggal SPK <span class="text-danger">*</span>
             </label>
