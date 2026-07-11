@@ -369,6 +369,12 @@
            class="nav-link {% if ep == 'se2026.daftar' and request.view_args.get('jenis','').upper()=='PML' %}active{% endif %}">
           <i class="bi bi-person-check"></i> PML (Pemeriksa)
         </a>
+        {% if session.get('user_role') in ['admin_kabupaten', 'admin_fungsi'] %}
+        <a href="{{ url_for('se2026.nik_index') }}"
+           class="nav-link {% if ep == 'se2026.nik_index' %}active{% endif %}">
+          <i class="bi bi-person-vcard"></i> Input NIK Massal
+        </a>
+        {% endif %}
       </div>
     </div>
 

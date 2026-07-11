@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% block title %}Input NIK Petugas SE2026{% endblock %}
+{% block page_title %}Input NIK Petugas SE2026{% endblock %}
+
+{% block content %}
+<div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
+  <a href="{{ url_for('se2026.nik_template') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-download me-1"></i>Download Template Excel NIK
+  </a>
+  <button class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalImportNik">
+    <i class="bi bi-file-earmark-excel me-1"></i>Import NIK dari Excel
+  </button>
+  <input type="search" id="cariNik" class="form-control form-control-sm ms-auto"
+         placeholder="Cari nama petugas…" style="max-width:260px;font-size:13px;"
+         onkeyup="filterNik(this.value)">
+</div>
+
+<div class="alert alert-info py-2 px-3" style="font-size:12.5px;">
+  <i class="bi bi-info-circle me-1"></i>
+  Isi NIK langsung di kolom, lalu klik <strong>Simpan Semua NIK</strong>. Atau gunakan
+  Excel: download template (sudah berisi daftar nama), isi kolom NIK, lalu import.
+</div>
+
+<form method="POST" action="{{ url_for('se2026.nik_simpan') }}">
+  {% for jenis, rows, warna in [('PPL', ppl, 'primary'), ('PML', pml, 'success')] %}
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-white py-2 fw-semibold" style="font-size:13px;">
+      <span class="badge bg-{{ warna }} me-1">{{ jenis }}</span>
+      Petugas {{ 'Pendataan' if jenis=='PPL' else 'Pemeriksa' }} Lapangan
+      <span class="text-muted">({{ rows|length }})</span>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover table-sm mb-0 tbl-nik" style="font-size:12.5px;">
+          <thead style="background:#f8f9fb;">
+            <tr>
+              <th class="px-3" style="width:50px;">No.</th>
+              <th>Nama Petugas</th>
+              <th style="width:120px;">Nomor SPK</th>
+              <th style="width:260px;">NIK</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for k in rows %}
+            <tr class="baris-nik" data-nama="{{ k.nama|lower }}">
+              <td class="px-3 text-muted">{{ loop.index }}</td>
+              <td class="fw-medium">{{ k.nama }}</td>
+              <td class="font-monospace text-muted" style="font-size:11px;">{{ k.nomor_spk or '-' }}</td>
+              <td>
+                <input type="text" name="nik_{{ k.id }}" value="{{ k.nik or '' }}"
+                       class="form-control form-control-sm" placeholder="16 digit NIK"
+                       maxlength="30" style="font-size:12.5px;">
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-muted py-4">Belum ada petugas {{ jenis }}.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+  <div class="position-sticky bottom-0 bg-white py-2 border-top">
+    <button type="submit" class="btn btn-bps">
+      <i class="bi bi-check-lg me-1"></i>Simpan Semua NIK
+    </button>
+    <a href="{{ url_for('se2026.index') }}" class="btn btn-outline-secondary">Kembali</a>
+  </div>
+</form>
+
+<!-- Modal Import NIK -->
+<div class="modal fade" id="modalImportNik" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title fw-semibold">
+          <i class="bi bi-file-earmark-excel me-2 text-success"></i>Import NIK dari Excel
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{{ url_for('se2026.nik_import') }}" enctype="multipart/form-data">
+        <div class="modal-body">
+          <div class="alert alert-info" style="font-size:12px;">
+            <i class="bi bi-info-circle me-1"></i>
+            Gunakan <a href="{{ url_for('se2026.nik_template') }}">template NIK</a> (kolom ID, Jenis,
+            Nama, NIK). Cukup isi kolom <strong>NIK</strong>, kolom lain jangan diubah.
+            Pencocokan berdasarkan ID (atau Jenis+Nama bila ID kosong).
+          </div>
+          <label class="form-label fw-medium" style="font-size:13px;">
+            File Excel (.xlsx) <span class="text-danger">*</span>
+          </label>
+          <input type="file" name="file_excel" class="form-control" accept=".xlsx" required>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-success btn-sm">
+            <i class="bi bi-upload me-1"></i>Import NIK
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function filterNik(q) {
+    q = (q || '').toLowerCase();
+    document.querySelectorAll('.baris-nik').forEach(tr => {
+      tr.style.display = tr.dataset.nama.includes(q) ? '' : 'none';
+    });
+  }
+</script>
+{% endblock %}

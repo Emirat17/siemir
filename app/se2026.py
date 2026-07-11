@@ -67,15 +67,20 @@ def nomor_spk_lengkap(k):
     return f'B-{k.nomor_spk}/SPK-SE2026/1410/{kode}/2026'
 
 
+def _key_nomor_spk(x):
+    try:
+        return int(''.join(ch for ch in (x.nomor_spk or '') if ch.isdigit()) or 0)
+    except ValueError:
+        return 0
+
+
 def nomor_dokumen(k):
-    """Nomor urut dokumen (independen) = posisi petugas di antara kontrak sejenis,
-    diurut menaik berdasarkan nomor SPK. Dikembalikan sebagai '049'."""
-    semua = KontrakSE2026.query.filter_by(jenis=k.jenis).all()
-    def key(x):
-        try: return int(''.join(ch for ch in (x.nomor_spk or '') if ch.isdigit()) or 0)
-        except ValueError: return 0
-    semua.sort(key=key)
-    for i, x in enumerate(semua, 1):
+    """Nomor urut dokumen BAPP/BAST — BERLANJUT dari PPL ke PML.
+    Semua PPL (urut nomor SPK) menempati 1..N, lalu PML melanjutkan N+1..M.
+    Dikembalikan sebagai string 3 digit, mis. '159'."""
+    ppl = sorted(KontrakSE2026.query.filter_by(jenis='PPL').all(), key=_key_nomor_spk)
+    pml = sorted(KontrakSE2026.query.filter_by(jenis='PML').all(), key=_key_nomor_spk)
+    for i, x in enumerate(ppl + pml, 1):   # PPL dulu, PML melanjutkan
         if x.id == k.id:
             return f'{i:03d}'
     return '001'
@@ -479,6 +484,126 @@ def merge_bast(jenis):
             for k in kontrak_list]
     merged = merge_docx_list(docs)
     return _docx_response(merged, f"Merge_BAST_{jenis_upper}_{label}_SE2026.docx")
+
+
+# ── INPUT NIK MASSAL ─────────────────────────────────────────────
+
+@se2026.route('/nik')
+@login_required
+@role_required('admin_kabupaten', 'admin_fungsi')
+def nik_index():
+    ppl = sorted(KontrakSE2026.query.filter_by(jenis='PPL').all(), key=_key_nomor_spk)
+    pml = sorted(KontrakSE2026.query.filter_by(jenis='PML').all(), key=_key_nomor_spk)
+    return render_template('se2026/nik.html', ppl=ppl, pml=pml)
+
+
+@se2026.route('/nik/simpan', methods=['POST'])
+@login_required
+@role_required('admin_kabupaten', 'admin_fungsi')
+def nik_simpan():
+    diubah = 0
+    for k in KontrakSE2026.query.all():
+        field = f'nik_{k.id}'
+        if field in request.form:
+            baru = request.form.get(field, '').strip() or None
+            if baru != k.nik:
+                k.nik = baru
+                diubah += 1
+    db.session.commit()
+    flash(f'{diubah} NIK petugas berhasil diperbarui.', 'success')
+    return redirect(url_for('se2026.nik_index'))
+
+
+@se2026.route('/nik/template.xlsx')
+@login_required
+@role_required('admin_kabupaten', 'admin_fungsi')
+def nik_template():
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    import openpyxl.utils as u
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Input NIK Petugas SE2026'
+    biru  = PatternFill('solid', fgColor='1341A0')
+    kunci = PatternFill('solid', fgColor='E9ECEF')
+    fp    = Font(bold=True, color='FFFFFF', size=10)
+    thin  = Side(style='thin', color='AAAAAA')
+    bdr   = Border(left=thin, right=thin, top=thin, bottom=thin)
+    center= Alignment(horizontal='center', vertical='center', wrap_text=True)
+
+    headers = ['ID', 'Jenis', 'Nama', 'NIK (isi di sini)']
+    widths  = [8, 10, 32, 24]
+    for i, (h, w) in enumerate(zip(headers, widths), 1):
+        c = ws.cell(row=1, column=i, value=h)
+        c.fill, c.font, c.alignment, c.border = biru, fp, center, bdr
+        ws.column_dimensions[u.get_column_letter(i)].width = w
+
+    ppl = sorted(KontrakSE2026.query.filter_by(jenis='PPL').all(), key=_key_nomor_spk)
+    pml = sorted(KontrakSE2026.query.filter_by(jenis='PML').all(), key=_key_nomor_spk)
+    r = 2
+    for k in ppl + pml:
+        for col, val, locked in [(1, k.id, True), (2, k.jenis, True),
+                                 (3, k.nama, True), (4, k.nik or '', False)]:
+            c = ws.cell(row=r, column=col, value=val)
+            c.border = bdr
+            if locked:
+                c.fill = kunci
+        r += 1
+
+    buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+    return Response(buf.read(),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': 'attachment; filename="Template_Input_NIK_SE2026.xlsx"'})
+
+
+@se2026.route('/nik/import', methods=['POST'])
+@login_required
+@role_required('admin_kabupaten', 'admin_fungsi')
+def nik_import():
+    import openpyxl
+    file = request.files.get('file_excel')
+    if not file or not file.filename.endswith('.xlsx'):
+        flash('Upload file Excel (.xlsx) diperlukan.', 'danger')
+        return redirect(url_for('se2026.nik_index'))
+
+    def s(v):
+        if v is None:
+            return ''
+        if isinstance(v, float):
+            return str(int(v)) if v == int(v) else str(v)
+        return str(v).strip()
+
+    wb = openpyxl.load_workbook(file, data_only=True)
+    ws = wb.active
+    diubah = gagal = 0
+    # Kolom: 0=ID, 1=Jenis, 2=Nama, 3=NIK
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        if not row or all(v in (None, '') for v in row):
+            continue
+        nik = s(row[3] if len(row) > 3 else '')
+        if not nik:
+            continue
+        k = None
+        id_val = s(row[0] if len(row) > 0 else '')
+        if id_val.isdigit():
+            k = KontrakSE2026.query.get(int(id_val))
+        if k is None:   # fallback: cocokkan Jenis + Nama
+            jenis = s(row[1] if len(row) > 1 else '').upper()
+            nama  = s(row[2] if len(row) > 2 else '')
+            if jenis in ('PPL', 'PML') and nama:
+                k = KontrakSE2026.query.filter_by(jenis=jenis, nama=nama).first()
+        if k is not None:
+            k.nik = nik
+            diubah += 1
+        else:
+            gagal += 1
+    db.session.commit()
+    msg = f'Import NIK selesai: {diubah} petugas diperbarui'
+    if gagal:
+        msg += f', {gagal} baris tidak cocok (ID/Nama tidak ditemukan)'
+    flash(msg + '.', 'success' if not gagal else 'warning')
+    return redirect(url_for('se2026.nik_index'))
 
 
 @se2026.route('/<jenis>/import', methods=['POST'])
