@@ -168,8 +168,17 @@ def renomor_semua(mulai_dari=1):
         Kontrak.tahun.asc(), Kontrak.bulan.asc(), Kontrak.id.asc()
     ).all()
     sequential = [k for k in semua if ambil_nomor_urut(k) is not None]
+
+    # Karena nomor_spk UNIQUE, reorder bisa memicu bentrok sementara
+    # (mis. SPK Mei mengambil nomor yang masih dipakai SPK Juni). Beri nilai
+    # sementara yang pasti unik (pakai id), flush, baru assign nomor final.
+    for k in sequential:
+        k.nomor_spk = f'__tmp__{k.id}'
+    db.session.flush()
     for i, k in enumerate(sequential, 1):
         k.nomor_spk = buat_nomor_spk(i, k.kode_fungsi or '14.101', k.tahun)
+    db.session.flush()
+
     rec = NomorUrut.query.filter_by(jenis='SPK').first()
     if rec:
         rec.terakhir = len(sequential)
