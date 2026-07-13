@@ -935,6 +935,23 @@ def edit_kegiatan(id):
 def hapus_kegiatan(id):
     keg = Kegiatan.query.get_or_404(id)
     kontrak = keg.kontrak
+    # Hapus dulu referensi BAST atas kegiatan ini agar tidak melanggar foreign key.
+    # BAST yang menjadi kosong ikut dihapus; yang masih berisi dihitung ulang.
+    bast_dihapus = False
+    for bk in list(keg.bast_refs):
+        bast = bk.bast
+        db.session.delete(bk)
+        db.session.flush()
+        if bast is not None:
+            if BASTKegiatan.query.filter_by(bast_id=bast.id).count() == 0:
+                db.session.delete(bast)
+                bast_dihapus = True
+            else:
+                db.session.expire(bast)
+                bast.hitung_total()
+    db.session.flush()
+    if bast_dihapus:
+        renomor_semua_bast()
     db.session.delete(keg)
     db.session.flush()
     kontrak.tanggal_mulai = tanggal_mulai_otomatis(kontrak.bulan, kontrak.tahun)
@@ -1033,11 +1050,19 @@ def hapus_kontrak(id):
     kontrak = Kontrak.query.get_or_404(id)
     # Ambil nomor urut kontrak yang akan dihapus
     nomor_dihapus = ambil_nomor_urut(kontrak)
-    db.session.delete(kontrak)
+    ada_bast = len(kontrak.bast_list) > 0
+    # Hapus BAST milik kontrak (beserta BASTKegiatan-nya via cascade) dulu,
+    # agar penghapusan kontrak & kegiatannya tidak melanggar foreign key.
+    for bast in list(kontrak.bast_list):
+        db.session.delete(bast)
+    db.session.flush()
+    db.session.delete(kontrak)   # kegiatan ikut terhapus via cascade
     db.session.flush()
     # Renomor semua kontrak dari posisi yang dihapus
     if nomor_dihapus:
         renomor_semua(nomor_dihapus)
+    if ada_bast:
+        renomor_semua_bast()
     db.session.commit()
     flash('Kontrak berhasil dihapus dan nomor diperbarui.', 'warning')
     return redirect(url_for('main.daftar_kontrak'))
