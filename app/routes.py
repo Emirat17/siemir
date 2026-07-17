@@ -2199,6 +2199,13 @@ def generate_bast_doc(id):
     from app.doc_generator import generate_bast as gen_bast
     bast = BAST.query.get_or_404(id)
     kontrak = bast.kontrak
+    # Assign nomor BAST jika belum ada (BAST auto-generate belum bernomor).
+    # Dengan ini nomor muncul di daftar dan dokumen tidak error.
+    if not bast.nomor_bast:
+        no_bast = next_nomor_bast()
+        kode    = kontrak.kode_fungsi or '14.101'
+        bast.nomor_bast = buat_nomor_bast(no_bast, kode, bast.tahun_bast)
+        db.session.commit()
     template = os.path.join(os.path.dirname(__file__), 'templates', 'DOKUMEN_BAST.docx')
     data = {
         'nomor_spk':       kontrak.nomor_spk,
@@ -2225,7 +2232,8 @@ def generate_bast_doc(id):
         } for bk in bast.kegiatan_list],
     }
     docx_bytes = gen_bast(data, template)
-    nama = f"BAST_{(bast.nomor_bast or kontrak.nomor_bast).replace('/', '-')}_{NAMA_BULAN[bast.bulan_bast]}.docx"
+    nomor_file = (bast.nomor_bast or kontrak.nomor_bast or f'BAST-{bast.id}')
+    nama = f"BAST_{nomor_file.replace('/', '-')}_{NAMA_BULAN[bast.bulan_bast]}.docx"
     return Response(docx_bytes,
         mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         headers={'Content-Disposition': f'attachment; filename="{nama}"'})
