@@ -590,6 +590,186 @@ def _isi_tabel_wilayah_bast(doc, items):
             target._tbl.append(new_tr)
 
 
+# ── GENERATOR SPPL SE2026 ────────────────────────────────────────
+def _fmt_persen(realisasi, target):
+    """realisasi/target*100 → '88,63' (2 desimal, koma)."""
+    try:
+        t = float(target or 0)
+        if t == 0:
+            return '0'
+        return f'{float(realisasi or 0) / t * 100:.2f}'.replace('.', ',')
+    except (TypeError, ValueError):
+        return '0'
+
+
+def _set_sel_teks(tc, teks):
+    """Set teks paragraf pertama sebuah sel <w:tc>, pertahankan run pertama."""
+    from docx.text.paragraph import Paragraph as _DP
+    for w_p in tc.findall('.//' + qn('w:p')):
+        p = _DP(w_p, None)
+        if p.runs:
+            p.runs[0].text = teks
+            for r in p.runs[1:]:
+                r.text = ''
+            return
+        p.add_run(teks)
+        return
+
+
+def _baris_contoh(r):
+    """True bila baris tabel adalah baris contoh/template (punya placeholder <<>>
+    atau berisi 'Dst') dan bukan baris 'Jumlah'."""
+    txt = ' '.join(c.text for c in r.cells)
+    if r.cells[0].text.strip().lower().startswith('jumlah'):
+        return False
+    return ('<<' in txt) or ('dst' in txt.lower())
+
+
+def _isi_tabel_sppl(tbl, marker, items, buat_vm):
+    """Isi tabel SPPL: baris ber-marker jadi template, hapus semua baris contoh
+    (placeholder / 'Dst'), sisipkan satu baris per item sebelum baris 'Jumlah'."""
+    rows = list(tbl.rows)
+    tpl_row = next((r for r in rows if marker in ' '.join(c.text for c in r.cells)), None)
+    if tpl_row is None:
+        return
+    tpl_tr = copy.deepcopy(tpl_row._tr)
+    anchor = next((r._tr for r in rows
+                   if r.cells[0].text.strip().lower().startswith('jumlah')), None)
+    for r in rows:
+        if _baris_contoh(r) and r._tr.getparent() is not None:
+            tbl._tbl.remove(r._tr)
+    for idx, it in enumerate(items, 1):
+        new_tr = copy.deepcopy(tpl_tr)
+        tcs = new_tr.findall(qn('w:tc'))
+        if tcs:
+            _set_sel_teks(tcs[0], f'{idx}.')
+        vm = buat_vm(it)
+        for tc in tcs:
+            ganti_tc(tc, vm)
+        if anchor is not None:
+            anchor.addprevious(new_tr)
+        else:
+            tbl._tbl.append(new_tr)
+
+
+def generate_sppl_ppl(data, template_path):
+    """SPPL Petugas Lapangan (per PPL) — penggantian paragraf sederhana."""
+    doc = Document(template_path)
+    persen = _fmt_persen(data.get('realisasi'), data.get('target'))
+    var_map = {
+        '<<Nomor SPPL dimulai dari 25>>':      str(data.get('nomor_sppl', '')),
+        '<<Nama PPL>>':                        data.get('nama', ''),
+        '<<NIK PPL>>':                         data.get('nik', '') or '',
+        '<<Nomor SPK PPL SE2026>>':            data.get('nomor_spk', ''),
+        '<<Realisasi PPL>>':                   str(data.get('realisasi', '')),
+        '<<Target PPL>>':                      str(data.get('target', '')),
+        '<<(Realisasi PPL/Target PPL)*100>>':  persen,
+    }
+    ganti_doc(doc, var_map)
+    buf = io.BytesIO(); doc.save(buf); buf.seek(0)
+    return buf.read()
+
+
+def generate_sppl_pml(data, template_path):
+    """SPPL Pemeriksa Lapangan (per PML) + tabel daftar PPL yang diawasi."""
+    doc = Document(template_path)
+    var_map = {
+        '<<Nomor SPPL dimulai dari 2>>': str(data.get('nomor_sppl', '')),
+        '<<Nama PML>>':                  data.get('nama', ''),
+        '<<NIK PML>>':                   data.get('nik', '') or '',
+        '<<Nomor SPK PML SE2026>>':      data.get('nomor_spk', ''),
+    }
+    ganti_doc(doc, var_map)
+
+    ppl_list = data.get('ppl_list', [])
+    tbl = next((t for t in doc.tables
+                if '<<Nama PPL 1>>' in ' '.join(c.text for r in t.rows for c in r.cells)), None)
+    if tbl is not None:
+        def vm(p):
+            return {
+                '<<Nama PPL 1>>':      p.get('nama', ''),
+                '<<Target PPL 1>>':    str(p.get('target', '')),
+                '<<Realisasi PPL 1>>': str(p.get('realisasi', '')),
+                '<<(Realisasi PPL 1/Target PPL 1)*100%>>': _fmt_persen(p.get('realisasi'), p.get('target')),
+            }
+        _isi_tabel_sppl(tbl, '<<Nama PPL 1>>', ppl_list, vm)
+        # Isi baris Jumlah
+        st = sum(float(p.get('target', 0) or 0) for p in ppl_list)
+        sr = sum(float(p.get('realisasi', 0) or 0) for p in ppl_list)
+        jrow = next((r for r in tbl.rows if r.cells[0].text.strip().lower().startswith('jumlah')), None)
+        if jrow is not None:
+            tcs = jrow._tr.findall(qn('w:tc'))
+            if len(tcs) >= 3:   # 3 sel terakhir = Target, Realisasi, Persentase
+                _set_sel_teks(tcs[-3], f'{int(st)}')
+                _set_sel_teks(tcs[-2], f'{int(sr)}')
+                _set_sel_teks(tcs[-1], _fmt_persen(sr, st))
+
+    buf = io.BytesIO(); doc.save(buf); buf.seek(0)
+    return buf.read()
+
+
+def generate_sppl_kepala(data, template_path):
+    """SPPL Kepala BPS — rekap seluruh petugas (PML lalu PPL) + total."""
+    doc = Document(template_path)
+    pml = data.get('pml_list', [])
+    ppl = data.get('ppl_list', [])
+    st = sum(float(x.get('target', 0) or 0) for x in pml + ppl)
+    sr = sum(float(x.get('realisasi', 0) or 0) for x in pml + ppl)
+    var_map = {
+        '<<Jumlah Target Seluruhnya>>':     f'{int(st)}',
+        '<<Jumlah Realisasi Seluruhnya>>':  f'{int(sr)}',
+        '<<Jumlah Persentase Seluruhnya>>': _fmt_persen(sr, st),
+    }
+    ganti_doc(doc, var_map)
+
+    tbl = next((t for t in doc.tables
+                if '<<Nama PML 1>>' in ' '.join(c.text for r in t.rows for c in r.cells)), None)
+    if tbl is None:
+        buf = io.BytesIO(); doc.save(buf); buf.seek(0); return buf.read()
+
+    rows = list(tbl.rows)
+    tr_pml = copy.deepcopy(next(r._tr for r in rows
+                                if '<<Nama PML 1>>' in ' '.join(c.text for c in r.cells)))
+    tr_ppl = copy.deepcopy(next(r._tr for r in rows
+                                if '<<Nama PPL 1>>' in ' '.join(c.text for c in r.cells)))
+    anchor = next((r._tr for r in rows
+                   if r.cells[0].text.strip().lower().startswith('jumlah')), None)
+    # hapus semua baris contoh (punya placeholder / 'Dst') sebelum Jumlah
+    for r in rows:
+        if _baris_contoh(r) and r._tr.getparent() is not None:
+            tbl._tbl.remove(r._tr)
+
+    no = 0
+    def sisip(tr_tpl, item, jabatan, ph_nama, ph_tgt, ph_real, ph_pct):
+        nonlocal no
+        no += 1
+        new_tr = copy.deepcopy(tr_tpl)
+        tcs = new_tr.findall(qn('w:tc'))
+        _set_sel_teks(tcs[0], f'{no}.')
+        vm = {
+            ph_nama: item.get('nama', ''),
+            ph_tgt:  str(item.get('target', '')),
+            ph_real: str(item.get('realisasi', '')),
+            ph_pct:  _fmt_persen(item.get('realisasi'), item.get('target')),
+        }
+        for tc in tcs:
+            ganti_tc(tc, vm)
+        if anchor is not None:
+            anchor.addprevious(new_tr)
+        else:
+            tbl._tbl.append(new_tr)
+
+    for it in pml:
+        sisip(tr_pml, it, 'PML', '<<Nama PML 1>>', '<<Target PML 1>>',
+              '<<Realisasi PML 1>>', '<<(Realisasi PML 1/Target PML 1)*100%>>')
+    for it in ppl:
+        sisip(tr_ppl, it, 'PPL', '<<Nama PPL 1>>', '<<Target PPL 1>>',
+              '<<Realisasi PPL 1>>', '<<(Realisasi PPL 1/Target PPL 1)*100%>>')
+
+    buf = io.BytesIO(); doc.save(buf); buf.seek(0)
+    return buf.read()
+
+
 # ── MERGE DOKUMEN ────────────────────────────────────────────────
 def _get_numbering_el(doc):
     """Ambil elemen <w:numbering> dari dokumen, atau None jika tidak ada."""

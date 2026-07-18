@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% block title %}Dokumen SPPL SE2026{% endblock %}
+{% block page_title %}Dokumen SPPL — Surat Pernyataan Penyelesaian Lapangan{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-2">
+          <i class="bi bi-file-earmark-medical me-2 text-primary"></i>SPPL Termin I — Batch 1
+        </h6>
+        <p class="text-muted mb-3" style="font-size:13px;">
+          Unggah file <strong>rekap Excel</strong> (berisi sheet <em>Rekap PPL</em> &amp;
+          <em>Rekap PML</em> dengan kolom Nama, Realisasi, Target). Sistem akan memilih
+          petugas yang <strong>sudah mencapai ambang batas</strong> (Batch 1), mengambil NIK
+          &amp; Nomor SPK dari data SE2026, lalu membuat dokumen SPPL PPL, SPPL PML, dan
+          SPPL Kepala BPS. Petugas di bawah ambang masuk daftar Batch 2 (di file ringkasan).
+        </p>
+        <div class="d-flex gap-3 text-muted" style="font-size:13px;">
+          <span><i class="bi bi-person-badge me-1 text-primary"></i>{{ n_ppl }} PPL terdaftar</span>
+          <span><i class="bi bi-person-check me-1 text-success"></i>{{ n_pml }} PML terdaftar</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white py-3 fw-semibold" style="font-size:14px;">
+        <i class="bi bi-upload me-2"></i>Buat Dokumen SPPL
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('se2026.sppl_generate') }}"
+              enctype="multipart/form-data">
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label class="form-label fw-medium" style="font-size:13px;">
+                File Rekap Excel (.xlsx) <span class="text-danger">*</span>
+              </label>
+              <input type="file" name="file_excel" class="form-control" accept=".xlsx" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-medium" style="font-size:13px;">
+                Ambang Batas (%) <span class="text-danger">*</span>
+              </label>
+              <input type="number" name="threshold" class="form-control"
+                     value="40" min="0" max="100" step="0.01" required>
+              <div class="form-text" style="font-size:11px;">Batch 1 = persentase ≥ nilai ini.</div>
+            </div>
+          </div>
+
+          <div class="alert alert-info mt-3 py-2 px-3" style="font-size:12.5px;">
+            <i class="bi bi-info-circle me-1"></i>
+            Hasil berupa <strong>1 file ZIP</strong> berisi:
+            dokumen gabungan (<em>SPPL_PPL_gabungan</em>, <em>SPPL_PML_gabungan</em>,
+            <em>SPPL_Kepala_BPS</em>), folder <em>individual</em> per petugas, dan
+            <em>RINGKASAN.txt</em> (daftar Batch 1, Batch 2, serta nama yang tidak cocok).
+          </div>
+
+          <button type="submit" class="btn btn-bps mt-1">
+            <i class="bi bi-gear-fill me-1"></i>Proses &amp; Download ZIP
+          </button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

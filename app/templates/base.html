@@ -374,6 +374,10 @@
            class="nav-link {% if ep == 'se2026.nik_index' %}active{% endif %}">
           <i class="bi bi-person-vcard"></i> Input NIK Massal
         </a>
+        <a href="{{ url_for('se2026.sppl_index') }}"
+           class="nav-link {% if ep in ['se2026.sppl_index','se2026.sppl_generate'] %}active{% endif %}">
+          <i class="bi bi-file-earmark-medical"></i> Dokumen SPPL
+        </a>
         {% endif %}
       </div>
     </div>

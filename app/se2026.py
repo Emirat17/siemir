@@ -2,7 +2,7 @@
 Blueprint SE2026 — Kontrak Sensus Ekonomi 2026.
 Menangani PPL (Petugas Pendataan Lapangan) dan PML (Petugas Pemeriksa Lapangan).
 """
-import io, os
+import io, os, re
 from datetime import date
 from flask import (Blueprint, render_template, redirect, url_for,
                    request, flash, Response)
@@ -27,6 +27,15 @@ TPL_BAST = {
     'PPL': _TPL('Template_BAST untuk Petugas Lapangan SE2026 final.docx'),
     'PML': _TPL('Template_BAST untuk Pemeriksa Lapangan Final.docx'),
 }
+TPL_SPPL = {
+    'PPL':    _TPL('SURAT PERNYATAAN PENYELESAIAN LAPANGAN PPL.docx'),
+    'PML':    _TPL('SURAT PERNYATAAN PENYELESAIAN LAPANGAN PML.docx'),
+    'KEPALA': _TPL('SURAT PERNYATAAN PELAKSANAAN SE2026 Kepala BPS.docx'),
+}
+
+
+def _norm_nama(s):
+    return re.sub(r'\s+', ' ', (s or '').strip()).upper()
 
 # Kolom Excel: 0=Nama, 1=NIK, 2=Alamat, 3..9=honor/volume, 10=Gelombang,
 # 11=Kelas → wilayah/PPL mulai index 12
@@ -499,6 +508,141 @@ def bapp_data_json(jenis):
                          for p in k.ppl_list],
         })
     return jsonify(out)
+
+
+# ── SPPL (Surat Pernyataan Penyelesaian Lapangan) ────────────────
+
+@se2026.route('/sppl')
+@login_required
+@role_required('admin_kabupaten', 'admin_fungsi')
+def sppl_index():
+    n_ppl = KontrakSE2026.query.filter_by(jenis='PPL').count()
+    n_pml = KontrakSE2026.query.filter_by(jenis='PML').count()
+    return render_template('se2026/sppl.html', n_ppl=n_ppl, n_pml=n_pml)
+
+
+@se2026.route('/sppl/generate', methods=['POST'])
+@login_required
+@role_required('admin_kabupaten', 'admin_fungsi')
+def sppl_generate():
+    import openpyxl
+    import zipfile
+    from app.doc_generator import (generate_sppl_ppl, generate_sppl_pml,
+                                   generate_sppl_kepala, merge_docx_list)
+
+    file = request.files.get('file_excel')
+    if not file or not file.filename.endswith('.xlsx'):
+        flash('Upload file rekap Excel (.xlsx) diperlukan.', 'danger')
+        return redirect(url_for('se2026.sppl_index'))
+    threshold = request.form.get('threshold', type=float) or 40.0
+
+    # 1. Baca rekap (sheet 'Rekap PPL' & 'Rekap PML') → {nama_norm: (realisasi, target)}
+    wb = openpyxl.load_workbook(file, data_only=True)
+    rekap = {'PPL': {}, 'PML': {}}
+    for sheetname, jns in [('Rekap PPL', 'PPL'), ('Rekap PML', 'PML')]:
+        if sheetname not in wb.sheetnames:
+            continue
+        ws = wb[sheetname]
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            if not row or not row[0]:
+                continue
+            nama = str(row[0]).strip()
+            try:
+                real = float(row[1] or 0); tgt = float(row[2] or 0)
+            except (TypeError, ValueError, IndexError):
+                real = tgt = 0
+            rekap[jns][_norm_nama(nama)] = (real, tgt)
+
+    # 2. Cocokkan ke kontrak → hitung persentase
+    def build(jenis):
+        hasil, tak_ada = [], []
+        kontraks = sorted(KontrakSE2026.query.filter_by(jenis=jenis).all(),
+                          key=_key_nomor_spk)
+        for k in kontraks:
+            rt = rekap[jenis].get(_norm_nama(k.nama))
+            if rt is None:
+                tak_ada.append(k.nama)
+                continue
+            real, tgt = rt
+            persen = (real / tgt * 100) if tgt else 0
+            hasil.append({'k': k, 'nama': k.nama, 'nik': k.nik or '',
+                          'nomor_spk': nomor_spk_lengkap(k),
+                          'realisasi': int(real), 'target': int(tgt), 'persen': persen})
+        return hasil, tak_ada
+
+    ppl_all, ppl_takada = build('PPL')
+    pml_all, pml_takada = build('PML')
+
+    # 3. Batch 1 = persen >= threshold; sisanya batch 2
+    def pisah(lst):
+        b1 = [x for x in lst if x['persen'] >= threshold]
+        b2 = [x for x in lst if x['persen'] <  threshold]
+        return b1, b2
+    ppl_b1, ppl_b2 = pisah(ppl_all)
+    pml_b1, pml_b2 = pisah(pml_all)
+
+    if not (ppl_b1 or pml_b1):
+        flash('Tidak ada petugas yang memenuhi ambang batas. Cek file rekap / cocokkan nama.', 'warning')
+        return redirect(url_for('se2026.sppl_index'))
+
+    # 4. Penomoran berkelanjutan: Kepala=1, PML 2.., PPL lanjut
+    for i, x in enumerate(pml_b1, 2):
+        x['nomor_sppl'] = i
+    for i, x in enumerate(ppl_b1, 2 + len(pml_b1)):
+        x['nomor_sppl'] = i
+
+    # 5. Untuk SPPL PML: daftar PPL yang diawasi + realisasi/target dari rekap
+    for x in pml_b1:
+        ppls = []
+        for p in x['k'].ppl_list:
+            rt = rekap['PPL'].get(_norm_nama(p.nama_ppl))
+            real, tgt = (rt if rt else ('', ''))
+            ppls.append({'nama': p.nama_ppl,
+                         'realisasi': int(real) if rt else '',
+                         'target': int(tgt) if rt else ''})
+        x['ppl_list'] = ppls
+
+    def aman(nm):
+        return re.sub(r'[^A-Za-z0-9 _-]', '', nm).strip().replace(' ', '_')[:40]
+
+    # 6. Generate semua + kemas ZIP (individual + gabungan)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
+        ppl_docs, pml_docs = [], []
+        for x in ppl_b1:
+            d = generate_sppl_ppl(x, TPL_SPPL['PPL'])
+            ppl_docs.append(d)
+            z.writestr(f"individual/PPL/{x['nomor_sppl']:03d}_{aman(x['nama'])}.docx", d)
+        for x in pml_b1:
+            d = generate_sppl_pml(x, TPL_SPPL['PML'])
+            pml_docs.append(d)
+            z.writestr(f"individual/PML/{x['nomor_sppl']:03d}_{aman(x['nama'])}.docx", d)
+        kepala = generate_sppl_kepala({'pml_list': pml_b1, 'ppl_list': ppl_b1}, TPL_SPPL['KEPALA'])
+        z.writestr('SPPL_Kepala_BPS.docx', kepala)
+        if ppl_docs:
+            z.writestr('SPPL_PPL_gabungan.docx', merge_docx_list(ppl_docs))
+        if pml_docs:
+            z.writestr('SPPL_PML_gabungan.docx', merge_docx_list(pml_docs))
+
+        # ringkasan
+        def blok(judul, items):
+            s = f'{judul} ({len(items)}):\n'
+            for x in items:
+                s += f"  {x.get('nomor_sppl','-')}. {x['nama']} — {x['realisasi']}/{x['target']} = {x['persen']:.2f}%\n"
+            return s + '\n'
+        ring = f'RINGKASAN SPPL TERMIN I (ambang {threshold:.0f}%)\n\n'
+        ring += blok('BATCH 1 — PML (dibuatkan SPPL)', pml_b1)
+        ring += blok('BATCH 1 — PPL (dibuatkan SPPL)', ppl_b1)
+        ring += blok('BATCH 2 — PML (< ambang, belum)', pml_b2)
+        ring += blok('BATCH 2 — PPL (< ambang, belum)', ppl_b2)
+        ring += 'Nama di sistem TAPI tidak ada di rekap:\n'
+        ring += '  PML: ' + (', '.join(pml_takada) or '-') + '\n'
+        ring += '  PPL: ' + (', '.join(ppl_takada) or '-') + '\n'
+        z.writestr('RINGKASAN.txt', ring)
+
+    buf.seek(0)
+    return Response(buf.read(), mimetype='application/zip',
+        headers={'Content-Disposition': 'attachment; filename="SPPL_Termin1_Batch1.zip"'})
 
 
 @se2026.route('/<jenis>/merge-bast')
