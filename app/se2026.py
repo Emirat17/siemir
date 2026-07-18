@@ -617,7 +617,9 @@ def sppl_generate():
             d = generate_sppl_pml(x, TPL_SPPL['PML'])
             pml_docs.append(d)
             z.writestr(f"individual/PML/{x['nomor_sppl']:03d}_{aman(x['nama'])}.docx", d)
-        kepala = generate_sppl_kepala({'pml_list': pml_b1, 'ppl_list': ppl_b1}, TPL_SPPL['KEPALA'])
+        # Lampiran Kepala BPS: SELURUH petugas yang ada di rekap (termasuk <ambang),
+        # karena mereka tetap bagian dari rekap — bukan hanya Batch 1.
+        kepala = generate_sppl_kepala({'pml_list': pml_all, 'ppl_list': ppl_all}, TPL_SPPL['KEPALA'])
         z.writestr('SPPL_Kepala_BPS.docx', kepala)
         if ppl_docs:
             z.writestr('SPPL_PPL_gabungan.docx', merge_docx_list(ppl_docs))

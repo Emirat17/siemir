@@ -12,12 +12,18 @@
           <i class="bi bi-file-earmark-medical me-2 text-primary"></i>SPPL Termin I — Batch 1
         </h6>
         <p class="text-muted mb-3" style="font-size:13px;">
-          Unggah file <strong>rekap Excel</strong> (berisi sheet <em>Rekap PPL</em> &amp;
-          <em>Rekap PML</em> dengan kolom Nama, Realisasi, Target). Sistem akan memilih
-          petugas yang <strong>sudah mencapai ambang batas</strong> (Batch 1), mengambil NIK
-          &amp; Nomor SPK dari data SE2026, lalu membuat dokumen SPPL PPL, SPPL PML, dan
-          SPPL Kepala BPS. Petugas di bawah ambang masuk daftar Batch 2 (di file ringkasan).
+          Unggah file <strong>rekap Excel</strong> (sheet <em>Rekap PPL</em> &amp;
+          <em>Rekap PML</em>, kolom Nama, Realisasi, Target). Sebaiknya rekap memuat
+          <strong>SEMUA petugas</strong> (baik yang sudah ≥ ambang maupun yang belum).
         </p>
+        <ul class="text-muted mb-3" style="font-size:12.5px;">
+          <li><strong>Dokumen SPPL PPL &amp; PML individual</strong> hanya dibuat untuk
+              petugas yang <strong>≥ ambang batas</strong> (Batch 1).</li>
+          <li><strong>Lampiran SPPL PML &amp; SPPL Kepala BPS</strong> tetap mencantumkan
+              <strong>seluruh petugas</strong> yang ada di rekap (termasuk yang &lt; ambang),
+              karena mereka bagian dari rekap.</li>
+          <li>NIK &amp; Nomor SPK diambil otomatis dari data SE2026.</li>
+        </ul>
         <div class="d-flex gap-3 text-muted" style="font-size:13px;">
           <span><i class="bi bi-person-badge me-1 text-primary"></i>{{ n_ppl }} PPL terdaftar</span>
           <span><i class="bi bi-person-check me-1 text-success"></i>{{ n_pml }} PML terdaftar</span>
