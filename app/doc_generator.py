@@ -652,8 +652,23 @@ def _isi_tabel_sppl(tbl, marker, items, buat_vm):
             tbl._tbl.append(new_tr)
 
 
+def _hapus_nomor_halaman(doc):
+    """Kosongkan header seluruh section (mis. hilangkan nomor halaman)."""
+    for sec in doc.sections:
+        hdr = sec.header
+        try:
+            hdr.is_linked_to_previous = False
+        except Exception:
+            pass
+        for p in hdr.paragraphs:
+            for child in list(p._p):
+                if child.tag != qn('w:pPr'):
+                    p._p.remove(child)
+
+
 def generate_sppl_ppl(data, template_path):
-    """SPPL Petugas Lapangan (per PPL) — penggantian paragraf sederhana."""
+    """SPPL Petugas Lapangan (per PPL) — penggantian paragraf sederhana.
+    Nomor halaman dihilangkan karena tiap SPPL PPL hanya 1 halaman per petugas."""
     doc = Document(template_path)
     persen = _fmt_persen(data.get('realisasi'), data.get('target'))
     var_map = {
@@ -666,6 +681,7 @@ def generate_sppl_ppl(data, template_path):
         '<<(Realisasi PPL/Target PPL)*100>>':  persen,
     }
     ganti_doc(doc, var_map)
+    _hapus_nomor_halaman(doc)
     buf = io.BytesIO(); doc.save(buf); buf.seek(0)
     return buf.read()
 

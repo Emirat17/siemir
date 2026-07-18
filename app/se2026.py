@@ -591,11 +591,16 @@ def sppl_generate():
     for i, x in enumerate(ppl_b1, 2 + len(pml_b1)):
         x['nomor_sppl'] = i
 
-    # 5. Untuk SPPL PML: daftar PPL yang diawasi + realisasi/target dari rekap
+    # 5. Untuk SPPL PML: daftar PPL yang diawasi + realisasi/target dari rekap.
+    #    Dedupe per nama (satu PPL bisa punya beberapa entri wilayah di data).
     for x in pml_b1:
-        ppls = []
+        ppls, seen = [], set()
         for p in x['k'].ppl_list:
-            rt = rekap['PPL'].get(_norm_nama(p.nama_ppl))
+            key = _norm_nama(p.nama_ppl)
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            rt = rekap['PPL'].get(key)
             real, tgt = (rt if rt else ('', ''))
             ppls.append({'nama': p.nama_ppl,
                          'realisasi': int(real) if rt else '',
