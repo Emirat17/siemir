@@ -470,6 +470,37 @@ def merge_bapp(jenis, termin):
     return _docx_response(merged, f"Merge_BAPP_Termin{termin}_{jenis_upper}_{label}_SE2026.docx")
 
 
+@se2026.route('/<jenis>/bapp-data.json')
+@login_required
+@role_required('admin_kabupaten', 'admin_fungsi')
+def bapp_data_json(jenis):
+    """Ekspor data BAPP/BAST per petugas (JSON) untuk dipakai script lokal
+    penyisipan screenshot. Buka saat login lalu simpan filenya."""
+    from flask import jsonify
+    jenis_upper = jenis.upper()
+    rows = sorted(KontrakSE2026.query.filter_by(jenis=jenis_upper).all(),
+                  key=_key_nomor_spk)
+    out = []
+    for k in rows:
+        out.append({
+            'jenis':        k.jenis,
+            'nama':         k.nama,
+            'nik':          k.nik or '',
+            'nomor':        nomor_dokumen(k),
+            'nomor_spk':    nomor_spk_lengkap(k),
+            'honor_1_ob':   float(k.honor_1_ob or 0),
+            'honor_1_5_ob': float(k.honor_1_5_ob or 0),
+            'total_honor':  float(k.total_honor or 0),
+            'jumlah_sls':   k.jumlah_sls or 0,
+            'wilayah': [{'kode_kecamatan': w.kode_kecamatan, 'kode_desa': w.kode_desa,
+                         'jumlah_sls': w.jumlah_sls} for w in k.wilayah_list],
+            'ppl_list': [{'nama_ppl': p.nama_ppl, 'kode_kecamatan': p.kode_kecamatan,
+                          'kode_desa': p.kode_desa, 'jumlah_sls': p.jumlah_sls}
+                         for p in k.ppl_list],
+        })
+    return jsonify(out)
+
+
 @se2026.route('/<jenis>/merge-bast')
 @login_required
 def merge_bast(jenis):
