@@ -18,9 +18,9 @@ HERE   = os.path.dirname(os.path.abspath(__file__))
 REPO   = os.path.dirname(HERE)
 INPUT  = os.path.join(HERE, 'BAPP_Termin1_dengan_screenshot')
 
-# 0  = satu file gabungan per jenis (paling praktis untuk cetak)
-# >0 = pecah tiap N dokumen (mis. 40) bila file terlalu besar/berat dibuka
-BATCH_SIZE = 0
+# 0  = satu file gabungan per jenis
+# >0 = pecah tiap N dokumen agar file tidak terlalu besar/berat dibuka & dicetak
+BATCH_SIZE = 40
 
 
 def load_docgen():
