@@ -860,11 +860,31 @@ def _remap_numbering(master_numbering, src_numbering, src_body):
             numId_el.set(VAL, num_map[v])
 
 
+def _remap_gambar(master, src, src_body):
+    """Salin part gambar dari dokumen sumber ke master & remap r:embed,
+    agar gambar (screenshot) tiap dokumen tidak tertukar saat merge."""
+    EMBED = qn('r:embed')
+    cache = {}
+    for el in src_body.iter():
+        rid = el.get(EMBED)
+        if not rid or rid not in src.part.rels:
+            continue
+        rel = src.part.rels[rid]
+        if 'image' not in rel.reltype:
+            continue
+        if rid not in cache:
+            new_rid, _ = master.part.get_or_add_image(io.BytesIO(rel.target_part.blob))
+            cache[rid] = new_rid
+        el.set(EMBED, cache[rid])
+
+
 def merge_docx_list(docx_bytes_list):
     """
     Gabungkan beberapa .docx menjadi satu file.
 
     Menangani:
+    - Gambar (screenshot): part gambar disalin & r:embed di-remap agar
+      gambar tiap dokumen tidak tertukar.
     - Penomoran daftar (numId) di-remap per dokumen → tabel & heading
       restart dari 1 / I di setiap dokumen (tidak melanjutkan nomor
       dokumen sebelumnya).
@@ -887,6 +907,8 @@ def merge_docx_list(docx_bytes_list):
         src      = Document(io.BytesIO(docx_bytes))
         src_body = src.element.body
 
+        # Salin & remap gambar dokumen ini agar tidak tertukar
+        _remap_gambar(master, src, src_body)
         # Remap numbering dokumen ini agar penomoran restart
         _remap_numbering(master_numbering, _get_numbering_el(src), src_body)
 
