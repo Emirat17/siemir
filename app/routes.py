@@ -94,6 +94,38 @@ def renomor_semua_bast():
     elif semua_bast:
         db.session.add(NomorUrut(jenis='BAST', terakhir=len(semua_bast)))
 
+def pastikan_nomor_bast(bast, tahun=None):
+    """
+    Pastikan sebuah BAST punya nomor.
+    Kode fungsi diambil dari fungsi dominan (honor terbesar) pada kegiatan BAST.
+    Return True bila nomor baru di-assign.
+    """
+    from collections import defaultdict
+
+    honor_per_fungsi = defaultdict(float)
+    for bk in bast.kegiatan_list:
+        honor_per_fungsi[bk.kegiatan.fungsi] += float(bk.kegiatan.honor_total or 0)
+
+    if honor_per_fungsi:
+        fd   = max(honor_per_fungsi, key=honor_per_fungsi.get)
+        kode = FUNGSI_KODE.get(fd, bast.kontrak.kode_fungsi or '14.101')
+    else:
+        kode = bast.kontrak.kode_fungsi or '14.101'
+
+    thn = tahun or bast.tahun_bast
+
+    if not bast.nomor_bast:
+        bast.nomor_bast = buat_nomor_bast(next_nomor_bast(), kode, thn)
+        return True
+
+    # Sudah bernomor — sinkronkan kode fungsi bila fungsi dominan berubah
+    bagian = bast.nomor_bast.split('/')
+    if len(bagian) >= 2 and bagian[1] != kode:
+        bast.nomor_bast = bast.nomor_bast.replace(
+            '/' + bagian[1] + '/', '/' + kode + '/', 1)
+    return False
+
+
 def ambil_nomor_urut(kontrak):
     """Ambil nomor urut dari nomor SPK yang sudah ada. Mengembalikan None untuk SPK bersufiks (mis. 107A)."""
     if kontrak.nomor_spk:
@@ -2051,6 +2083,7 @@ def generate_bast_massal():
 
         dibuat = 0
         diupdate = 0
+        dinomori = 0
         dilewati = 0
         SBML = 3600000
         sbml_warning = []
@@ -2097,25 +2130,8 @@ def generate_bast_massal():
             db.session.expire(bast)
 
             # Hitung fungsi dominan & assign nomor
-            honor_per_fungsi = defaultdict(float)
-            for bk2 in bast.kegiatan_list:
-                honor_per_fungsi[bk2.kegiatan.fungsi] += float(
-                    bk2.kegiatan.honor_total or 0)
-
-            if honor_per_fungsi:
-                fd   = max(honor_per_fungsi, key=honor_per_fungsi.get)
-                kode = FUNGSI_KODE.get(fd, kontrak.kode_fungsi or '14.101')
-            else:
-                kode = kontrak.kode_fungsi or '14.101'
-
-            if not bast.nomor_bast:
-                no_b = next_nomor_bast()
-                bast.nomor_bast = buat_nomor_bast(no_b, kode, tahun_bast_v)
-            else:
-                bagian = bast.nomor_bast.split('/')
-                if len(bagian) >= 2 and bagian[1] != kode:
-                    bast.nomor_bast = bast.nomor_bast.replace(
-                        '/' + bagian[1] + '/', '/' + kode + '/', 1)
+            if pastikan_nomor_bast(bast, tahun_bast_v):
+                dinomori += 1
 
             bast.hitung_total()
 
@@ -2124,10 +2140,32 @@ def generate_bast_massal():
                     f"{kontrak.petugas.nama} — Rp {int(bast.total_honor):,}"
                 )
 
+        # ── Pass ke-2: BAST bulan ini yang sudah ada (mis. dibuat otomatis
+        #    saat entri kontrak) tapi belum bernomor — beri nomor juga.
+        #    Tanpa ini, BAST hasil auto-generate tidak pernah dapat nomor
+        #    karena kegiatannya sudah terpakai sehingga dilewati di atas.
+        q_kosong = (BAST.query.join(Kontrak)
+                    .filter(BAST.bulan_bast == bulan_bast_v,
+                            BAST.tahun_bast == tahun_bast_v))
+        if fungsi_filter:
+            q_kosong = q_kosong.filter(Kontrak.nama_fungsi == fungsi_filter)
+
+        for bast in sorted(q_kosong.all(), key=lambda b: b.id):
+            if bast.nomor_bast:
+                continue
+            if pastikan_nomor_bast(bast, tahun_bast_v):
+                dinomori += 1
+                bast.hitung_total()
+                if float(bast.total_honor) > SBML:
+                    sbml_warning.append(
+                        f"{bast.kontrak.petugas.nama} — Rp {int(bast.total_honor):,}"
+                    )
+
         db.session.commit()
 
         msg = f'Generate massal selesai: {dibuat} BAST baru dibuat'
         if diupdate: msg += f', {diupdate} diperbarui'
+        if dinomori: msg += f', {dinomori} diberi nomor'
         flash(msg + '.', 'success')
         if sbml_warning:
             flash('⚠ Melebihi SBML: ' + ' | '.join(sbml_warning[:5])
