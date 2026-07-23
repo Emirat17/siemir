@@ -534,15 +534,13 @@ def sppl_generate():
     if not file or not file.filename.endswith('.xlsx'):
         flash('Upload file rekap Excel (.xlsx) diperlukan.', 'danger')
         return redirect(url_for('se2026.sppl_index'))
-    threshold = request.form.get('threshold', type=float) or 40.0
+    threshold   = request.form.get('threshold', type=float) or 40.0
+    batch       = request.form.get('batch', type=int) or 1
+    nomor_mulai = request.form.get('nomor_mulai', type=int) or 165
 
-    # 1. Baca rekap (sheet 'Rekap PPL' & 'Rekap PML') → {nama_norm: (realisasi, target)}
-    wb = openpyxl.load_workbook(file, data_only=True)
-    rekap = {'PPL': {}, 'PML': {}}
-    for sheetname, jns in [('Rekap PPL', 'PPL'), ('Rekap PML', 'PML')]:
-        if sheetname not in wb.sheetnames:
-            continue
-        ws = wb[sheetname]
+    def baca_sheet(ws):
+        """Sheet rekap → {nama_norm: (realisasi, target)}."""
+        out = {}
         for row in ws.iter_rows(min_row=2, values_only=True):
             if not row or not row[0]:
                 continue
@@ -551,7 +549,26 @@ def sppl_generate():
                 real = float(row[1] or 0); tgt = float(row[2] or 0)
             except (TypeError, ValueError, IndexError):
                 real = tgt = 0
-            rekap[jns][_norm_nama(nama)] = (real, tgt)
+            out[_norm_nama(nama)] = (real, tgt)
+        return out
+
+    # 1. Baca rekap (sheet 'Rekap PPL' & 'Rekap PML') → {nama_norm: (realisasi, target)}
+    wb = openpyxl.load_workbook(file, data_only=True)
+    rekap = {'PPL': {}, 'PML': {}}
+    for sheetname, jns in [('Rekap PPL', 'PPL'), ('Rekap PML', 'PML')]:
+        if sheetname in wb.sheetnames:
+            rekap[jns] = baca_sheet(wb[sheetname])
+
+    # Rekap PPL LENGKAP — dipakai untuk mengisi tabel lampiran pada SPPL PML,
+    # supaya seluruh PPL yang diawasi tetap terisi realisasi/target walaupun
+    # sheet 'Rekap PPL' hanya memuat petugas batch ini saja.
+    sheet_penuh = next((s for s in wb.sheetnames
+                        if _norm_nama(s).startswith('REKAP PPL')
+                        and any(kata in _norm_nama(s)
+                                for kata in ('SELURUH', 'SEMUA', 'LENGKAP'))), None)
+    rekap_ppl_penuh = dict(rekap['PPL'])
+    if sheet_penuh:
+        rekap_ppl_penuh.update(baca_sheet(wb[sheet_penuh]))
 
     # 2. Cocokkan ke kontrak → hitung persentase
     def build(jenis):
@@ -573,34 +590,48 @@ def sppl_generate():
     ppl_all, ppl_takada = build('PPL')
     pml_all, pml_takada = build('PML')
 
-    # 3. Batch 1 = persen >= threshold; sisanya batch 2
+    # 3. Tentukan siapa yang dibuatkan dokumen
+    #    Batch 1 → hanya yang persen >= ambang batas.
+    #    Batch 2 → SEMUA yang ada di file rekap yang diupload
+    #              (file disiapkan sendiri berisi petugas batch 2 saja).
     def pisah(lst):
-        b1 = [x for x in lst if x['persen'] >= threshold]
-        b2 = [x for x in lst if x['persen'] <  threshold]
-        return b1, b2
-    ppl_b1, ppl_b2 = pisah(ppl_all)
-    pml_b1, pml_b2 = pisah(pml_all)
+        return ([x for x in lst if x['persen'] >= threshold],
+                [x for x in lst if x['persen'] <  threshold])
 
-    if not (ppl_b1 or pml_b1):
-        flash('Tidak ada petugas yang memenuhi ambang batas. Cek file rekap / cocokkan nama.', 'warning')
+    if batch == 2:
+        ppl_pilih, pml_pilih = ppl_all, pml_all
+        ppl_sisa,  pml_sisa  = [], []
+    else:
+        ppl_pilih, ppl_sisa = pisah(ppl_all)
+        pml_pilih, pml_sisa = pisah(pml_all)
+
+    if not (ppl_pilih or pml_pilih):
+        pesan = ('Tidak ada petugas pada file rekap yang cocok dengan data SE2026. '
+                 'Cek penulisan nama.' if batch == 2 else
+                 'Tidak ada petugas yang memenuhi ambang batas. Cek file rekap / cocokkan nama.')
+        flash(pesan, 'warning')
         return redirect(url_for('se2026.sppl_index'))
 
-    # 4. Penomoran berkelanjutan: Kepala=1, PML 2.., PPL lanjut
-    for i, x in enumerate(pml_b1, 2):
+    # 4. Penomoran berkelanjutan, urut PML dulu lalu PPL.
+    #    Batch 1 → Kepala = 1, PML mulai 2.
+    #    Batch 2 → melanjutkan penomoran batch sebelumnya (default mulai 165).
+    awal = nomor_mulai if batch == 2 else 2
+    for i, x in enumerate(pml_pilih, awal):
         x['nomor_sppl'] = i
-    for i, x in enumerate(ppl_b1, 2 + len(pml_b1)):
+    for i, x in enumerate(ppl_pilih, awal + len(pml_pilih)):
         x['nomor_sppl'] = i
 
-    # 5. Untuk SPPL PML: daftar PPL yang diawasi + realisasi/target dari rekap.
+    # 5. Untuk SPPL PML: SELURUH PPL yang diawasi + realisasi/target dari rekap.
     #    Dedupe per nama (satu PPL bisa punya beberapa entri wilayah di data).
-    for x in pml_b1:
+    #    Sumber angka = rekap PPL lengkap, agar PPL dari batch lain tetap terisi.
+    for x in pml_pilih:
         ppls, seen = [], set()
         for p in x['k'].ppl_list:
             key = _norm_nama(p.nama_ppl)
             if not key or key in seen:
                 continue
             seen.add(key)
-            rt = rekap['PPL'].get(key)
+            rt = rekap_ppl_penuh.get(key)
             real, tgt = (rt if rt else ('', ''))
             ppls.append({'nama': p.nama_ppl,
                          'realisasi': int(real) if rt else '',
@@ -614,11 +645,11 @@ def sppl_generate():
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
         ppl_docs, pml_docs = [], []
-        for x in ppl_b1:
+        for x in ppl_pilih:
             d = generate_sppl_ppl(x, TPL_SPPL['PPL'])
             ppl_docs.append(d)
             z.writestr(f"individual/PPL/{x['nomor_sppl']:03d}_{aman(x['nama'])}.docx", d)
-        for x in pml_b1:
+        for x in pml_pilih:
             d = generate_sppl_pml(x, TPL_SPPL['PML'])
             pml_docs.append(d)
             z.writestr(f"individual/PML/{x['nomor_sppl']:03d}_{aman(x['nama'])}.docx", d)
@@ -637,11 +668,20 @@ def sppl_generate():
             for x in items:
                 s += f"  {x.get('nomor_sppl','-')}. {x['nama']} — {x['realisasi']}/{x['target']} = {x['persen']:.2f}%\n"
             return s + '\n'
-        ring = f'RINGKASAN SPPL TERMIN I (ambang {threshold:.0f}%)\n\n'
-        ring += blok('BATCH 1 — PML (dibuatkan SPPL)', pml_b1)
-        ring += blok('BATCH 1 — PPL (dibuatkan SPPL)', ppl_b1)
-        ring += blok('BATCH 2 — PML (< ambang, belum)', pml_b2)
-        ring += blok('BATCH 2 — PPL (< ambang, belum)', ppl_b2)
+        if batch == 2:
+            ring  = 'RINGKASAN SPPL TERMIN I — BATCH 2\n'
+            ring += f'Penomoran mulai {nomor_mulai} (PML lebih dulu, lalu PPL)\n'
+            ring += ('Lampiran SPPL PML memuat SELURUH PPL yang diawasi'
+                     + (f" (angka dari sheet '{sheet_penuh}')" if sheet_penuh else '')
+                     + '\n\n')
+            ring += blok('BATCH 2 — PML (dibuatkan SPPL)', pml_pilih)
+            ring += blok('BATCH 2 — PPL (dibuatkan SPPL)', ppl_pilih)
+        else:
+            ring  = f'RINGKASAN SPPL TERMIN I (ambang {threshold:.0f}%)\n\n'
+            ring += blok('BATCH 1 — PML (dibuatkan SPPL)', pml_pilih)
+            ring += blok('BATCH 1 — PPL (dibuatkan SPPL)', ppl_pilih)
+            ring += blok('BATCH 2 — PML (< ambang, belum)', pml_sisa)
+            ring += blok('BATCH 2 — PPL (< ambang, belum)', ppl_sisa)
         ring += 'Nama di sistem TAPI tidak ada di rekap:\n'
         ring += '  PML: ' + (', '.join(pml_takada) or '-') + '\n'
         ring += '  PPL: ' + (', '.join(ppl_takada) or '-') + '\n'
@@ -649,7 +689,8 @@ def sppl_generate():
 
     buf.seek(0)
     return Response(buf.read(), mimetype='application/zip',
-        headers={'Content-Disposition': 'attachment; filename="SPPL_Termin1_Batch1.zip"'})
+        headers={'Content-Disposition':
+                 f'attachment; filename="SPPL_Termin1_Batch{batch}.zip"'})
 
 
 @se2026.route('/<jenis>/merge-bast')

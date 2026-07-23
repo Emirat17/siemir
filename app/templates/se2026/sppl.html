@@ -9,20 +9,25 @@
     <div class="card border-0 shadow-sm mb-3">
       <div class="card-body">
         <h6 class="fw-semibold mb-2">
-          <i class="bi bi-file-earmark-medical me-2 text-primary"></i>SPPL Termin I — Batch 1
+          <i class="bi bi-file-earmark-medical me-2 text-primary"></i>SPPL Termin I
         </h6>
         <p class="text-muted mb-3" style="font-size:13px;">
           Unggah file <strong>rekap Excel</strong> (sheet <em>Rekap PPL</em> &amp;
-          <em>Rekap PML</em>, kolom Nama, Realisasi, Target). Sebaiknya rekap memuat
-          <strong>SEMUA petugas</strong> (baik yang sudah ≥ ambang maupun yang belum).
+          <em>Rekap PML</em>, kolom Nama, Realisasi, Target).
+          Urutan dokumen selalu <strong>PML dulu, baru PPL</strong>.
+          NIK &amp; Nomor SPK diambil otomatis dari data SE2026.
         </p>
         <ul class="text-muted mb-3" style="font-size:12.5px;">
-          <li><strong>Dokumen SPPL PPL &amp; PML individual</strong> hanya dibuat untuk
-              petugas yang <strong>≥ ambang batas</strong> (Batch 1).</li>
-          <li><strong>Lampiran SPPL PML &amp; SPPL Kepala BPS</strong> tetap mencantumkan
-              <strong>seluruh petugas</strong> yang ada di rekap (termasuk yang &lt; ambang),
-              karena mereka bagian dari rekap.</li>
-          <li>NIK &amp; Nomor SPK diambil otomatis dari data SE2026.</li>
+          <li><strong>Batch 1</strong> — dokumen dibuat hanya untuk petugas
+              <strong>≥ ambang batas</strong>. Penomoran: Kepala BPS = 1, PML mulai 2,
+              lalu PPL. Rekap sebaiknya memuat semua petugas.</li>
+          <li><strong>Batch 2</strong> — dokumen dibuat untuk <strong>semua petugas yang
+              ada di file rekap</strong> (siapkan file berisi petugas batch 2 saja),
+              dengan penomoran melanjutkan batch sebelumnya.</li>
+          <li><strong>Lampiran SPPL PML</strong> selalu memuat <strong>seluruh PPL yang
+              diawasi</strong>. Bila sheet <em>Rekap PPL</em> hanya berisi petugas batch ini,
+              tambahkan sheet <em>Rekap PPL Seluruh</em> agar angka PPL batch lain tetap terisi.</li>
+          <li><strong>SPPL Kepala BPS</strong> mencantumkan seluruh petugas yang ada di rekap.</li>
         </ul>
         <div class="d-flex gap-3 text-muted" style="font-size:13px;">
           <span><i class="bi bi-person-badge me-1 text-primary"></i>{{ n_ppl }} PPL terdaftar</span>
@@ -39,19 +44,53 @@
         <form method="POST" action="{{ url_for('se2026.sppl_generate') }}"
               enctype="multipart/form-data">
           <div class="row g-3">
+            <div class="col-md-12">
+              <label class="form-label fw-medium" style="font-size:13px;">
+                Batch <span class="text-danger">*</span>
+              </label>
+              <div class="d-flex gap-4">
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="batch" value="1"
+                         id="batch1" checked onchange="ubahBatch()">
+                  <label class="form-check-label" for="batch1" style="font-size:13px;">
+                    Batch 1 — saring dengan ambang batas
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="batch" value="2"
+                         id="batch2" onchange="ubahBatch()">
+                  <label class="form-check-label" for="batch2" style="font-size:13px;">
+                    Batch 2 — semua yang ada di file rekap
+                  </label>
+                </div>
+              </div>
+            </div>
+
             <div class="col-md-8">
               <label class="form-label fw-medium" style="font-size:13px;">
                 File Rekap Excel (.xlsx) <span class="text-danger">*</span>
               </label>
               <input type="file" name="file_excel" class="form-control" accept=".xlsx" required>
             </div>
-            <div class="col-md-4">
+
+            <div class="col-md-4" id="kotak-threshold">
               <label class="form-label fw-medium" style="font-size:13px;">
                 Ambang Batas (%) <span class="text-danger">*</span>
               </label>
               <input type="number" name="threshold" class="form-control"
-                     value="40" min="0" max="100" step="0.01" required>
+                     value="40" min="0" max="100" step="0.01">
               <div class="form-text" style="font-size:11px;">Batch 1 = persentase ≥ nilai ini.</div>
+            </div>
+
+            <div class="col-md-4 d-none" id="kotak-nomor">
+              <label class="form-label fw-medium" style="font-size:13px;">
+                Nomor Mulai <span class="text-danger">*</span>
+              </label>
+              <input type="number" name="nomor_mulai" class="form-control"
+                     value="165" min="1" step="1">
+              <div class="form-text" style="font-size:11px;">
+                Nomor SPPL PML pertama pada batch ini.
+              </div>
             </div>
           </div>
 
@@ -60,7 +99,7 @@
             Hasil berupa <strong>1 file ZIP</strong> berisi:
             dokumen gabungan (<em>SPPL_PPL_gabungan</em>, <em>SPPL_PML_gabungan</em>,
             <em>SPPL_Kepala_BPS</em>), folder <em>individual</em> per petugas, dan
-            <em>RINGKASAN.txt</em> (daftar Batch 1, Batch 2, serta nama yang tidak cocok).
+            <em>RINGKASAN.txt</em> (daftar petugas beserta nomornya, serta nama yang tidak cocok).
           </div>
 
           <button type="submit" class="btn btn-bps mt-1">
@@ -72,4 +111,17 @@
 
   </div>
 </div>
+
+<script>
+function ubahBatch() {
+  var b2   = document.getElementById('batch2').checked;
+  var thr  = document.getElementById('kotak-threshold');
+  var nom  = document.getElementById('kotak-nomor');
+  thr.classList.toggle('d-none',  b2);
+  nom.classList.toggle('d-none', !b2);
+  thr.querySelector('input').required =  !b2;
+  nom.querySelector('input').required =   b2;
+}
+ubahBatch();
+</script>
 {% endblock %}
