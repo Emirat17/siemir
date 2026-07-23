@@ -94,6 +94,17 @@ def renomor_semua_bast():
     elif semua_bast:
         db.session.add(NomorUrut(jenis='BAST', terakhir=len(semua_bast)))
 
+def ganti_rugi_kontrak(kontrak):
+    """
+    Nilai ganti rugi untuk dokumen SPK.
+    Secara desain ganti rugi = total honor bulan tsb. Bila kolomnya masih 0
+    (data lama / belum tersinkron), pakai total honor sebagai fallback
+    supaya SPK tidak mencetak 'Rp. 0'.
+    """
+    tgr = float(kontrak.total_ganti_rugi or 0)
+    return tgr if tgr > 0 else float(kontrak.total_honor or 0)
+
+
 def pastikan_nomor_bast(bast, tahun=None):
     """
     Pastikan sebuah BAST punya nomor.
@@ -1127,7 +1138,7 @@ def generate_spk(id):
         'petugas_jabatan': kontrak.petugas.jabatan or 'Mitra',
         'petugas_alamat':  kontrak.petugas.alamat or '-',
         'total_honor':     float(kontrak.total_honor),
-        'total_ganti_rugi': float(kontrak.total_ganti_rugi or 0),
+        'total_ganti_rugi': ganti_rugi_kontrak(kontrak),
         'kegiatan_list': [{
             'nama_kegiatan': k.nama_kegiatan,
             'tgl_mulai':     k.tgl_mulai,
@@ -1407,6 +1418,7 @@ def merge_spk():
             'petugas_jabatan': kontrak.petugas.jabatan or 'Mitra',
             'petugas_alamat':  kontrak.petugas.alamat or '-',
             'total_honor':     float(kontrak.total_honor),
+            'total_ganti_rugi': ganti_rugi_kontrak(kontrak),
             'kegiatan_list': [{
                 'nama_kegiatan': k.nama_kegiatan,
                 'fungsi':        k.fungsi,
